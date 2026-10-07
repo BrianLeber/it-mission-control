@@ -154,7 +154,7 @@ button, a { color: inherit; font: inherit; }
   background: color-mix(in srgb, var(--s) var(--band), transparent);
   color: color-mix(in srgb, var(--on) var(--band), var(--fg));
 }
-.card[data-state="ok"] > .c-head, .tile[data-state="ok"] > .t-head, .comp-card[data-state="ok"] > .cc-head, .comp-card[data-ign] > .cc-head, .mini > .mini-head { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
+.card[data-state="ok"] > .c-head, .tile[data-state="ok"] > .t-head, .comp-card[data-state="ok"] > .cc-head, .comp-card[data-ign] > .cc-head, .mini[data-state="ok"] > .mini-head { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
 .card.parked > .c-head, .tile.parked > .t-head { background: transparent; color: var(--fg); }
 .mono { width: 34px; height: 34px; border-radius: 7px; display: grid; place-items: center; background: var(--brand); color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .02em; flex: none; }
 .c-title { min-width: 0; }
@@ -367,12 +367,46 @@ body.mode-live .demo-only, body.mode-public .demo-only, body.mode-public #b-allo
 .empty { color: var(--dim); padding: 24px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r); }
 @media (max-width: 900px) { .inc-item { grid-template-columns: 1fr auto; } .inc-item .when:first-of-type { display: none; } }
 
+/* TV board: one packed grid of full (4×4), quarter (2×2) and 1/16 (1×1) cells, sized to fit the screen */
+.bgrid { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-auto-rows: var(--rowh); grid-auto-flow: row dense; gap: 8px; }
+.bgrid > .sz-L { grid-column: span 4; grid-row: span 4; }
+.bgrid > .sz-M { grid-column: span 2; grid-row: span 2; }
+.bgrid > .sz-S { grid-column: span 1; grid-row: span 1; }
+.bgrid > .sz-banner { grid-column: 1 / -1; grid-row: span 2; display: grid; place-items: center; padding: 0; font-size: 26px; }
+.bgrid .card { --py: 12px; --px: 16px; overflow: hidden; gap: 7px; min-height: 0; }
+.bgrid .card .c-title h3 { font-size: 21px; }
+.bgrid .card .mono { width: 40px; height: 40px; font-size: 15px; }
+.bgrid .card .c-state, .bgrid .card .dur { font-size: 17px; }
+.bgrid .card .c-msg { font-size: 15px; }
+.bgrid .card .cells { height: 18px; }
+.bgrid .mini { overflow: hidden; }
+.bgrid .mini .mini-head b { font-size: 15px; }
+.bgrid .mini .cells { height: 10px; }
+.micro { position: relative; background: var(--panel); border: 2px solid color-mix(in srgb, var(--s) 35%, transparent); border-radius: var(--r); padding: 5px 7px;
+  display: grid; grid-template-rows: auto 1fr; align-content: space-between; min-width: 0; overflow: hidden; cursor: pointer; }
+.micro:not([data-state="ok"]) { border-color: var(--s); }
+.micro.parked { border-style: dashed; border-color: var(--faint); }
+.micro .mono { width: 22px; height: 22px; border-radius: 5px; font-size: 9px; }
+.micro .mi-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--s); }
+.micro[data-state="ok"] .mi-dot { opacity: .45; }
+.micro .mi-name { font-family: var(--f-display); font-weight: 600; font-size: 12px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: end; }
+.micro:hover, .mini:hover { background: var(--panel-2); }
+.mini:not([data-state="ok"]) { border-color: var(--s); }
+.mini[data-state="crit"] { box-shadow: 0 0 16px -6px var(--crit); animation: breathe 2.6s ease-in-out infinite alternate; }
+.mini[data-state="stale"] { border-style: dashed; }
+.pager { color: var(--fg); }
+.board-pick { background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: var(--r); padding: 5px 8px; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .06em; }
+.share-blocked { border: 1px solid var(--crit); border-radius: var(--r); padding: 10px 12px; font-size: 14px; }
+
 /* quiet services shrink: quarter cards and a logo tray; attention always returns full size */
 .mini-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); }
 .grid + .mini-grid { margin-top: 12px; }
 .mini { --py: 7px; --px: 10px; position: relative; background: var(--panel); border: 2px solid color-mix(in srgb, var(--ok) 30%, transparent); border-radius: var(--r);
   padding: var(--py) var(--px); display: grid; gap: 6px; cursor: pointer; min-width: 0; }
 .mini:hover { background: var(--panel-2); }
+.mini:not([data-state="ok"]) { border-color: var(--s); }
+.mini[data-state="crit"] { box-shadow: 0 0 16px -6px var(--crit); animation: breathe 2.6s ease-in-out infinite alternate; }
+.mini[data-state="stale"] { border-style: dashed; }
 .mini-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .mini-head .mono { width: 22px; height: 22px; border-radius: 5px; font-size: 10px; }
 .mini-head b { font-family: var(--f-display); font-weight: 600; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -420,7 +454,7 @@ select { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
 .park-form { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); }
 
 @media (prefers-reduced-motion: reduce) {
-  .card[data-state="crit"] { animation: none; }
+  .card[data-state="crit"], .mini[data-state="crit"] { animation: none; }
   .flash::after { animation: none; opacity: 0; }
   .card, .row { transition: none; }
 }
@@ -438,6 +472,7 @@ select { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
       <div class="counts" id="counts"></div>
     </div>
     <div class="controls">
+      <select id="board-pick" class="board-pick" aria-label="Board" hidden></select>
       <div class="seg" role="group" aria-label="View">
         <button id="v-cards" data-view="cards" aria-pressed="true">Cards</button>
         <button id="v-list" data-view="list" aria-pressed="false">List</button>
@@ -449,7 +484,7 @@ select { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
       <button class="toggle demo-only" id="b-step" aria-pressed="false" title="Apply the next scripted change now">Next event ›</button>
       <button class="toggle" id="t-density" title="Auto: roomy with few services; quiet ones shrink to small cards after 7 days; more services, smaller sooner">Size · Auto</button>
       <button class="toggle" id="t-theme" title="Switch between automatic, light and dark">Theme · Auto</button>
-      <button class="toggle" id="b-allow" aria-expanded="false" aria-controls="allow" title="Give a TV or shared screen read-only access"><span class="dot"></span>Allow a board</button>
+      <button class="toggle" id="b-allow" aria-expanded="false" aria-controls="allow" title="Show this board on a TV or shared screen"><span class="dot"></span>Share board</button>
       <div class="popover" id="allow" hidden></div>
     </div>
   </header>
@@ -481,6 +516,12 @@ const STATES = {
 const ORDER = ["crit", "warn", "stale", "ack", "maint", "ok"];
 const PEAK_HOLD = 30 * MIN;
 const PREFERRED_GROUPS = ["Public SaaS", "Our platforms", "Infrastructure"];
+// Boards are named views. The demo has three; Finance holds a private service, so it can't be shared.
+const DEMO_VIEWS = [
+  { id: "it", name: "IT board", groups: ["Public SaaS", "Our platforms", "Infrastructure"], checks: [] },
+  { id: "ir", name: "IR board", groups: [], checks: ["m365", "gws", "zoom", "slack", "okta"] },
+  { id: "fin", name: "Finance board", groups: ["Finance"], checks: ["m365"] },
+];
 let GROUPS = [...PREFERRED_GROUPS];
 // demo: simulated data (the published prototype) · live: served by the Mission Control server ·
 // public: a static page reading status.json built by `npm run cli -- snapshot`
@@ -495,25 +536,25 @@ const ago = ms => Date.now() - ms;
 
 function seedChecks() {
   const c = [
-    { id: "slack", name: "Slack", group: "Public SaaS", mono: "Sl", brand: "#611f69", src: "poll 1h", via: "Slack status API", url: "https://slack-status.com/",
+    { id: "slack", criticality: "high", name: "Slack", group: "Public SaaS", mono: "Sl", brand: "#611f69", src: "poll 1h", via: "Slack status API", url: "https://slack-status.com/",
       state: "ok", since: ago(6 * MIN), msg: "All services operational", peak: { state: "crit", at: ago(6 * MIN), dur: 9 * MIN },
       inc: [[15 * MIN, 9 * MIN, "crit"], [3 * DAY, 2 * HR, "warn"], [17 * DAY, 40 * MIN, "warn"]] },
     { id: "zoom", name: "Zoom", group: "Public SaaS", mono: "Zm", brand: "#0b5cff", src: "poll 1h", via: "Statuspage API", url: "https://status.zoom.us/",
       state: "maint", since: ago(25 * MIN), msg: "Zoom Phone scheduled maintenance, ends 21:00", openState: "maint",
       inc: [[9 * DAY, 3 * HR, "maint"]] },
-    { id: "m365", name: "Microsoft 365", group: "Public SaaS", mono: "365", brand: "#c43e1c", src: "poll 1h", via: "Graph service health", url: "https://admin.microsoft.com/#/servicehealth",
+    { id: "m365", criticality: "high", name: "Microsoft 365", group: "Public SaaS", mono: "365", brand: "#c43e1c", src: "poll 1h", via: "Graph service health", url: "https://admin.microsoft.com/#/servicehealth",
       platform: true, componentDefs: [{ name: "Exchange Online" }, { name: "SharePoint Online" }, { name: "OneDrive for Business" }, { name: "Microsoft 365 apps" }, { name: "Sway" }, { name: "Microsoft Forms" }, { name: "Planner" }, { name: "Microsoft Teams", relevance: "ignore", note: "We don't use Teams" }],
       state: "warn", since: ago(47 * MIN), msg: "SP1489449: Some users are not able to see apps (+1 more)", openState: "warn",
       inc: [[2 * DAY, 5 * HR, "warn"], [12 * DAY, 90 * MIN, "crit", true], [20 * DAY, 4 * HR, "warn"]] },
-    { id: "okta", name: "Okta", group: "Public SaaS", mono: "Ok", brand: "#2b2bd6", src: "poll 1h", via: "Status RSS", url: "https://status.okta.com/",
+    { id: "okta", criticality: "high", name: "Okta", group: "Public SaaS", mono: "Ok", brand: "#2b2bd6", src: "poll 1h", via: "Status RSS", url: "https://status.okta.com/",
       state: "ok", since: ago(11 * DAY), msg: "All systems operational", inc: [[11 * DAY, 35 * MIN, "warn"]] },
     { id: "gws", name: "Google Workspace", group: "Public SaaS", mono: "G", brand: "#1a73e8", src: "poll 1h", via: "Status JSON feed", url: "https://www.google.com/appsstatus/dashboard/",
       platform: true, componentDefs: ["Gmail", "Google Drive", "Google Docs", "Google Sheets", "Google Calendar", "Google Meet", "Google Chat"].map(name => ({ name })),
       state: "ok", since: ago(5 * DAY), msg: "No active incidents", inc: [[5 * DAY, 3 * HR, "warn"]] },
-    { id: "github", name: "GitHub", group: "Public SaaS", mono: "GH", brand: "#24292f", src: "poll 1h", via: "Statuspage API", url: "https://www.githubstatus.com/",
+    { id: "github", criticality: "low", name: "GitHub", group: "Public SaaS", mono: "GH", brand: "#24292f", src: "poll 1h", via: "Statuspage API", url: "https://www.githubstatus.com/",
       state: "ok", since: ago(2 * DAY), msg: "All systems operational", inc: [[2 * DAY, 70 * MIN, "crit", true], [8 * DAY, 2 * HR, "warn"], [24 * DAY, 30 * MIN, "warn"]] },
 
-    { id: "jamf", name: "Jamf Pro", group: "Our platforms", mono: "J", brand: "#3f4a59", src: "api 1h", via: "Jamf Pro API", url: "https://example.jamfcloud.com/",
+    { id: "jamf", criticality: "high", name: "Jamf Pro", group: "Our platforms", mono: "J", brand: "#3f4a59", src: "api 1h", via: "Jamf Pro API", url: "https://example.jamfcloud.com/",
       state: "ok", since: ago(26 * DAY), msg: "Health check OK · 1,284 devices checked in within 24h", inc: [[26 * DAY, 20 * MIN, "crit"]] },
     { id: "ninja", name: "NinjaOne", group: "Our platforms", size: "logo", mono: "N1", brand: "#1c6b4a", src: "api 1h", via: "NinjaOne API", url: "https://app.ninjarmm.com/",
       state: "ok", since: ago(15 * DAY), msg: "API reachable · 3 open device alerts", inc: [[15 * DAY, 45 * MIN, "warn"]] },
@@ -527,9 +568,9 @@ function seedChecks() {
       state: "ack", since: ago(72 * MIN), msg: "Disk D: 92% used · snoozed by Brian L.", openState: "ack",
       snooze: { by: "Brian L.", note: "Archiving old scans tonight", until: Date.now() + 168 * MIN, prior: "warn" },
       inc: [[3 * HR, 108 * MIN, "warn"]] },
-    { id: "dc01", name: "DC01", group: "Infrastructure", mono: "DC", brand: "#00597a", src: "webhook", via: "NinjaOne alert webhook", url: "https://app.ninjarmm.com/",
+    { id: "dc01", criticality: "high", name: "DC01", group: "Infrastructure", mono: "DC", brand: "#00597a", src: "webhook", via: "NinjaOne alert webhook", url: "https://app.ninjarmm.com/",
       state: "ok", since: ago(21 * DAY), msg: "AD DS, DNS and Netlogon running", inc: [[21 * DAY, 25 * MIN, "maint"]] },
-    { id: "web01", name: "web-01", group: "Infrastructure", mono: "W1", brand: "#4a3b2a", src: "ping 1m", via: "Heartbeat from cron", url: "https://web-01.example.local/",
+    { id: "web01", criticality: "low", name: "web-01", group: "Infrastructure", mono: "W1", brand: "#4a3b2a", src: "ping 1m", via: "Heartbeat from cron", url: "https://web-01.example.local/",
       state: "ok", since: ago(7 * DAY), msg: "Heartbeat on schedule", inc: [[7 * DAY, 15 * MIN, "crit"]] },
     { id: "veeam", name: "Veeam · Nightly VMs", group: "Infrastructure", mono: "Vm", brand: "#00865f", src: "email", via: "Email alerts, parsed", url: "https://veeam.example.local/",
       state: "crit", since: ago(6 * HR + 12 * MIN), msg: "Job 'Nightly-VMs' failed: 2 of 42 VMs. Waiting for a success email.", openState: "crit",
@@ -541,7 +582,9 @@ function seedChecks() {
       state: "crit", since: ago(7 * MIN), msg: "Access point offline (alert posted in #it-network-alerts)", openState: "crit",
       parked: { by: "Brian L.", at: ago(9 * DAY), until: "Dec 22", reason: "Flaps most evenings with no user impact. Replace over winter break." },
       inc: [[52 * MIN, 6 * MIN, "crit"], [31 * MIN, 4 * MIN, "crit"], ...Array.from({ length: 24 }, (_, k) => [(k + 1) * DAY - (k % 3) * HR, (12 + (k * 7) % 30) * MIN, "crit"])] },
-    { id: "ups", name: "UPS · Server room", group: "Infrastructure", mono: "UPS", brand: "#5a4a10", src: "email", via: "Email alerts, parsed", url: "https://ups.example.local/",
+    { id: "payroll", name: "Payroll gateway", group: "Finance", sensitivity: "secret", mono: "PY", brand: "#4b3f72", src: "http 15m", via: "HTTP check", url: null,
+      state: "ok", since: ago(12 * DAY), msg: "Health endpoint OK", inc: [[12 * DAY, 25 * MIN, "crit"]] },
+    { id: "ups", criticality: "low", name: "UPS · Server room", group: "Infrastructure", mono: "UPS", brand: "#5a4a10", src: "email", via: "Email alerts, parsed", url: "https://ups.example.local/",
       state: "ok", since: ago(3 * DAY), msg: "On utility power · self-test passed", inc: [[3 * DAY, 20 * MIN, "crit", true], [22 * DAY, 10 * MIN, "warn"]] },
   ];
   for (const s of c) {
@@ -832,6 +875,20 @@ const SCRIPT = [
 ];
 
 let checks = MODE === "demo" ? seedChecks() : [];
+let VIEWS = MODE === "demo" ? DEMO_VIEWS : [];
+let viewId = "it";
+try { viewId = localStorage.getItem("imc.board") || "it"; } catch {}
+const curView = () => VIEWS.find(v => v.id === viewId) || VIEWS[0] || null;
+const inView = (s, v = curView()) => !v || (!v.groups.length && !v.checks.length) || v.checks.includes(s.id) || v.groups.includes(s.group);
+/** The checks on the board being looked at. Everything else (lookups, demo script) uses all checks. */
+const vis = () => checks.filter(c => inView(c));
+const PRIVATE = ["sensitive", "secret"];
+function shareInfo(v = curView()) {
+  if (!v) return { ok: true, blocked: [] };
+  if (MODE === "live") return { ok: v.shareable !== false, blocked: v.blocked_by || [] };
+  const priv = checks.filter(c => inView(c, v) && PRIVATE.includes(c.sensitivity));
+  return { ok: !priv.length, blocked: priv.map(c => c.name) };
+}
 if (MODE === "demo") INCIDENTS = seedIncidents(checks);
 let step = 0;
 let view = "cards", autoFocus = true, demo = MODE === "demo";
@@ -996,7 +1053,7 @@ let density = "auto";
 const demoTag = s => (MODE === "demo" || s.demo) ? `<span class="demo-tag" title="Sample data, not a real service">demo</span>` : "";
 /** How long a check has been quiet. Auto density: few services stay big; many shrink sooner. */
 function quietThreshold() {
-  const mode = density === "auto" ? (checks.length <= 8 ? "roomy" : checks.length > 30 ? "dense-ish" : "normal") : density;
+  const mode = density === "auto" ? (vis().length <= 8 ? "roomy" : vis().length > 30 ? "dense-ish" : "normal") : density;
   return mode === "roomy" ? Infinity : mode === "dense" ? 0 : mode === "dense-ish" ? DAY : QUIET_AFTER;
 }
 const quietFor = s => s.state === "ok" && !s.parked ? Date.now() - s.since : 0;
@@ -1018,64 +1075,122 @@ function uptime(s, win = 28 * DAY) {
   const pct = 100 * (1 - down / Math.max(1, now - from));
   return pct >= 99.995 ? "100%" : `${pct.toFixed(pct >= 99 ? 2 : 1)}%`;
 }
-function miniHTML(s) {
-  return `<article class="mini" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: operational for ${fmtDur(quietFor(s))}">
+function miniHTML(s, cls = "") {
+  const ok = s.state === "ok";
+  return `<article class="mini ${cls}" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${ok ? `operational for ${fmtDur(quietFor(s))}` : STATES[s.state].label}">
     <div class="mini-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}${demoTag(s)}</b></div>
     ${histHTML(s, "tile")}
-    <div class="mini-foot"><span title="Operational without a break">up ${fmtDur(quietFor(s)).split(" ")[0]}</span><span title="Uptime over the last 28 days">${uptime(s)}</span></div>
+    <div class="mini-foot">${ok
+      ? `<span title="Operational without a break">up ${fmtDur(quietFor(s)).split(" ")[0]}</span><span title="Uptime over the last 28 days">${uptime(s)}</span>`
+      : `<span style="color:var(--s-ink)">${STATES[s.state].glyph} ${STATES[s.state].short}</span><span>${fmtDur(Date.now() - s.since)}</span>`}</div>
   </article>`;
 }
+const microHTML = s => `<div class="micro sz-S${s.parked ? " parked" : ""}" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button"
+  title="${esc(s.name)}${(MODE === "demo" || s.demo) ? " (demo)" : ""}: ${s.parked ? "parked, " : ""}${STATES[s.state].label.toLowerCase()}${s.state === "ok" ? `, up ${fmtDur(quietFor(s)).split(" ")[0]} · ${uptime(s)}` : ""}"
+  aria-label="${esc(s.name)}: ${STATES[s.state].label}"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><span class="mi-dot"></span><span class="mi-name">${esc(s.name)}</span></div>`;
 const logoHTML = s => `<button class="logo-chip" data-id="${s.id}" data-state="${s.state}" title="${esc(s.name)}${(MODE === "demo" || s.demo) ? " (demo)" : ""}: ${STATES[s.state].label.toLowerCase()} · minimized" aria-label="${esc(s.name)}: ${STATES[s.state].label}, minimized"><span class="mono" style="--brand:${s.brand}">${s.mono}</span></button>`;
 
 function renderCards() {
-  if (!autoFocus) return GROUPS.map(g => { const l = checks.filter(c => c.group === g); return section(g, l.length, `<div class="grid">${l.map(cardHTML).join("")}</div>`); }).join("");
-  const attn = checks.filter(needsEye).sort(bySeverity);
-  const planned = checks.filter(c => c.state === "maint" && !c.parked);
+  if (!autoFocus) return GROUPS.map(g => { const l = vis().filter(c => c.group === g); return section(g, l.length, `<div class="grid">${l.map(cardHTML).join("")}</div>`); }).join("");
+  const attn = vis().filter(needsEye).sort(bySeverity);
+  const planned = vis().filter(c => c.state === "maint" && !c.parked);
   const calm = c => c.state === "ok" && !c.parked;
   let h = "";
   if (attn.length) h += section("Needs attention", attn.length, `<div class="grid">${attn.map(cardHTML).join("")}</div>`);
   if (planned.length) h += section("Planned", planned.length, `<div class="grid">${planned.map(cardHTML).join("")}</div>`);
   const logos = [];
   for (const g of GROUPS) {
-    const l = checks.filter(c => c.group === g && calm(c)).sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || a.since - b.since);
+    const l = vis().filter(c => c.group === g && calm(c)).sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || a.since - b.since);
     const full = l.filter(c => cardSize(c) === "full"), mini = l.filter(c => cardSize(c) === "compact");
     logos.push(...l.filter(c => cardSize(c) === "logo"));
     const shown = full.length + mini.length;
     if (shown) h += section(g, `${l.length} operational${mini.length ? ` · ${mini.length} quiet` : ""}`,
       (full.length ? `<div class="grid">${full.map(cardHTML).join("")}</div>` : "") + (mini.length ? `<div class="mini-grid">${mini.map(miniHTML).join("")}</div>` : ""));
   }
-  const parked = checks.filter(c => c.parked);
+  const parked = vis().filter(c => c.parked);
   if (parked.length) h += section("Parked", parked.length, `<div class="grid">${parked.map(cardHTML).join("")}</div>`);
   if (logos.length) h += section("Minimized", logos.length, `<div class="tray">${logos.map(logoHTML).join("")}</div>`);
   return h;
 }
 function renderList() {
   const head = `<div class="list-head"><span>Service</span><span>Current</span><span>Detail</span><span>History · 4w → now</span><span style="text-align:right">Signal</span></div>`;
-  if (!autoFocus) return GROUPS.map(g => section(g, null, `<div class="list">${checks.filter(c => c.group === g).map(rowHTML).join("")}</div>`)).join("").replace("<div class=\"list\">", head + "<div class=\"list\">");
-  return `${head}<div class="list">${[...checks].sort(bySeverity).map(rowHTML).join("")}</div>`;
+  if (!autoFocus) return GROUPS.map(g => section(g, null, `<div class="list">${vis().filter(c => c.group === g).map(rowHTML).join("")}</div>`)).join("").replace("<div class=\"list\">", head + "<div class=\"list\">");
+  return `${head}<div class="list">${[...vis()].sort(bySeverity).map(rowHTML).join("")}</div>`;
+}
+// ---------- TV board: fit every service on one screen ----------
+// Attention gets full cards at the top. Calm services fill the space left, biggest for the most
+// critical; the lowest-priority ones shrink first. If even 1/16 cells don't fit, the smallest
+// calm services rotate through pages, like a departures board.
+const CELL_W = 104, ROW_H = 66, GAP = 8, CELLS = { L: 16, M: 4, S: 1 }, CRIT = { high: 2, normal: 1, low: 0 };
+let boardPage = 0, boardPages = 1, boardSlack = 0, boardKey = "";
+function boardGeometry() {
+  const main = document.getElementById("main");
+  const w = main.clientWidth || window.innerWidth - 40;
+  const cols = Math.max(4, Math.floor((w + GAP) / (CELL_W + GAP)));
+  const avail = window.innerHeight - main.getBoundingClientRect().top - 52; // ticker and bottom margin
+  return { cols, rows: Math.max(4, Math.floor((avail + GAP) / (ROW_H + GAP))) };
+}
+function boardPref(s) {
+  if (s.parked) return "S";
+  const pref = s.size || "auto";
+  if (pref === "logo") return "S";
+  if (pref === "compact") return "M";
+  if (pref === "full") return "L";
+  const quiet = quietFor(s) >= quietThreshold(), c = s.criticality || "normal";
+  return c === "high" ? "L" : c === "low" ? (quiet ? "S" : "M") : (quiet ? "M" : "L");
+}
+const prio = s => s.parked ? -1 : CRIT[s.criticality || "normal"];
+function planBoard(list, { cols, rows }) {
+  const hot = list.filter(s => needsEye(s) || peakActive(s)).sort(bySeverity);
+  const planned = list.filter(s => s.state === "maint" && !s.parked && !hot.includes(s));
+  const calm = list.filter(s => !hot.includes(s) && !planned.includes(s))
+    .sort((a, b) => prio(b) - prio(a) || b.since - a.since || a.name.localeCompare(b.name));
+  let budget = cols * rows - boardSlack - (hot.length ? 0 : cols * 2); // the all-clear banner takes two rows
+  // A wide outage: attention cards drop to quarter size so more of them fit.
+  const hotSize = hot.length * CELLS.L > budget * 0.6 ? "M" : "L";
+  const fixed = [...hot.map(s => ({ s, size: hotSize })), ...planned.map(s => ({ s, size: "M" }))];
+  const sizes = calm.map(boardPref);
+  const cellsOf = xs => xs.reduce((n, x) => n + CELLS[x.size ?? x], 0);
+  let used = cellsOf(fixed) + cellsOf(sizes);
+  for (const [from, to] of [["L", "M"], ["M", "S"]]) {
+    for (let i = calm.length - 1; i >= 0 && used > budget; i--) if (sizes[i] === from) { sizes[i] = to; used -= CELLS[from] - CELLS[to]; }
+  }
+  const items = calm.map((s, i) => ({ s, size: sizes[i] }));
+  const big = items.filter(x => x.size !== "S"), small = items.filter(x => x.size === "S");
+  const room = budget - cellsOf(fixed) - cellsOf(big);
+  if (small.length <= room) return { items: [...fixed, ...big, ...small], pages: [], banner: !hot.length };
+  const per = Math.max(Math.min(cols, small.length), room);
+  const pages = [];
+  for (let i = 0; i < small.length; i += per) pages.push(small.slice(i, i + per));
+  return { items: [...fixed, ...big], pages, banner: !hot.length };
 }
 function renderBoard() {
-  const attn = checks.filter(c => needsEye(c) || (c.state === "maint" && !c.parked)).sort(bySeverity);
-  const parked = checks.filter(c => c.parked);
-  const calm = checks.filter(c => !attn.includes(c) && !c.parked);
-  let h = attn.length
-    ? `<div class="board-attn">${attn.map(cardHTML).join("")}</div>`
-    : `<div class="all-clear">ALL SYSTEMS OPERATIONAL</div>`;
-  h = section(attn.length ? "Attention" : "Status", attn.length || null, h);
-  const logos = calm.filter(c => cardSize(c) === "logo"), tiles = calm.filter(c => cardSize(c) !== "logo");
-  h += section("Operational", calm.length, `<div class="board-calm">${tiles.sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group)).map(tileHTML).join("")}</div>`);
-  // Parked and minimized share one row on the TV: both are deliberately out of the way.
-  if (parked.length || logos.length) h += section([parked.length && "Parked", logos.length && "Minimized"].filter(Boolean).join(" · "), null,
-    `<div class="board-calm">${parked.map(tileHTML).join("")}${logos.length ? `<div class="tray" style="align-content:center">${logos.map(logoHTML).join("")}</div>` : ""}</div>`);
+  const list = vis(), g = boardGeometry();
+  const key = `${viewId}|${g.cols}x${g.rows}|${list.length}`;
+  if (key !== boardKey) { boardKey = key; boardSlack = 0; }
+  const plan = planBoard(list, g);
+  boardPages = plan.pages.length || 1;
+  if (boardPage >= boardPages) boardPage = 0;
+  const items = [...plan.items, ...(plan.pages[boardPage] || [])];
+  const html = items.map(({ s, size }) => size === "L" ? cardHTML(s).replace('<article class="card', '<article class="sz-L card') : size === "M" ? miniHTML(s, "sz-M") : microHTML(s)).join("");
   const tk = changes.length ? changes : [];
-  h += `<div class="ticker" aria-label="Recent changes">${tk.length ? tk.map(c => `<span class="tk" data-state="${c.to}">${fmtClock(c.t)} ${esc(c.name)} <i>${STATES[c.to].glyph} ${STATES[c.to].short}</i>${c.to === "ok" ? ` after ${fmtDur(c.dur)}` : ""}</span>`).join("") : `<span class="tk">No changes since this screen loaded.</span>`}</div>`;
-  return h;
+  return `<div class="bgrid" id="bgrid" style="--cols:${g.cols};--rowh:${ROW_H}px">
+      ${plan.banner ? `<div class="all-clear sz-banner">ALL SYSTEMS OPERATIONAL</div>` : ""}${html}</div>
+    <div class="ticker" aria-label="Recent changes">${plan.pages.length ? `<span class="tk pager">Quiet services · page ${boardPage + 1} of ${boardPages}</span>` : ""}${tk.length ? tk.map(c => `<span class="tk" data-state="${c.to}">${fmtClock(c.t)} ${esc(c.name)} <i>${STATES[c.to].glyph} ${STATES[c.to].short}</i>${c.to === "ok" ? ` after ${fmtDur(c.dur)}` : ""}</span>`).join("") : `<span class="tk">No changes since this screen loaded.</span>`}</div>`;
 }
+/** Packing can leave gaps the plan didn't count; if the grid still spills, give back a row and redraw. */
+function fitBoard() {
+  const grid = document.getElementById("bgrid"); if (!grid || view !== "board") return;
+  const g = boardGeometry();
+  if (grid.getBoundingClientRect().bottom > window.innerHeight - 44 && boardSlack < g.cols * g.rows / 2) { boardSlack += g.cols; render(); }
+}
+setInterval(() => { if (view === "board" && boardPages > 1 && !openId) { boardPage = (boardPage + 1) % boardPages; render(); } }, 8000);
+let resizeT; addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (view === "board") render(); }, 200); });
 
 function renderTop() {
-  const sorted = [...checks].sort(bySeverity);
+  const sorted = [...vis()].sort(bySeverity);
   document.getElementById("leds").innerHTML = sorted.map(s => `<span class="led" data-state="${s.state}"${s.parked ? " data-parked" : ""} title="${esc(s.name)}: ${s.parked ? "parked" : STATES[s.state].label}"></span>`).join("");
-  const live = checks.filter(c => !c.parked), np = checks.length - live.length;
+  const live = vis().filter(c => !c.parked), np = vis().length - live.length;
   document.getElementById("counts").innerHTML = ORDER.map(k => { const n = live.filter(c => c.state === k).length; return `<span data-state="${k}"${n ? "" : " data-zero"} title="${STATES[k].label}">${STATES[k].glyph} ${n}</span>`; }).join("")
     + (np ? `<span class="pk" title="Parked">‖ ${np}</span>` : "");
 }
@@ -1101,6 +1216,7 @@ function render() {
   }
   for (const s of checks) s.flash = false;
   if (openId && !panelInc) renderPanel();
+  if (view === "board") requestAnimationFrame(fitBoard);
 }
 
 // --- side panel
@@ -1534,13 +1650,13 @@ document.getElementById("t-focus").onclick = e => { autoFocus = !autoFocus; e.cu
 document.getElementById("t-demo").onclick = e => { demo = !demo; e.currentTarget.setAttribute("aria-pressed", String(demo)); };
 document.getElementById("b-step").onclick = nextEvent;
 
-// --- "Allow a board": an admin mints a short-lived code; the TV trades it for a read-only session
+// --- "Share board": an admin mints a short-lived code for the board being viewed; the screen trades it for a read-only session
 let kiosk = false;
 const BOARD_TTL = 30 * DAY, EXPIRY_WARN = 7 * DAY;
 const paired = [
-  { name: "Lobby TV", at: Date.now() - 25 * DAY, expires: Date.now() + 5 * DAY },
-  { name: "IT office", at: Date.now() - 33 * DAY, expires: Date.now() - 3 * DAY },
-  { name: "NOC wall", at: Date.now() - 2 * DAY, expires: Date.now() + 28 * DAY },
+  { name: "Lobby TV", board: "IT board", at: Date.now() - 25 * DAY, expires: Date.now() + 5 * DAY },
+  { name: "IT office", board: "IT board", at: Date.now() - 33 * DAY, expires: Date.now() - 3 * DAY },
+  { name: "IR office", board: "IR board", at: Date.now() - 2 * DAY, expires: Date.now() + 28 * DAY },
 ];
 const boardTone = b => b.expires <= Date.now() ? "crit" : b.expires - Date.now() <= EXPIRY_WARN ? "warn" : null;
 const fmtDate = t => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
@@ -1550,7 +1666,7 @@ function updateAllowButton() {
   const b = document.getElementById("b-allow");
   if (tone) { b.dataset.tone = tone; b.dataset.state = tone; } else { delete b.dataset.tone; delete b.dataset.state; }
   const n = tones.filter(Boolean).length;
-  b.title = tone ? `${n} board${n > 1 ? "s" : ""} expired or expiring within 7 days` : "Give a TV or shared screen read-only access";
+  b.title = tone ? `${n} screen${n > 1 ? "s" : ""} expired or expiring within 7 days` : "Show this board on a TV or shared screen";
 }
 function closeAllow() {
   const a = document.getElementById("allow"); if (a.hidden) return;
@@ -1561,9 +1677,9 @@ function toast(msg) {
   const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 5000);
 }
-let pairCode, pairExpires, pairName = "Conference room TV";
+let pairCode, pairExpires, pairName = "Conference room TV", pairView = null;
 let liveBoards = [], liveCode = null; // live mode: boards from the server, the one unspent code
-const boardList = () => MODE === "live" ? liveBoards.map(b => ({ id: b.id, name: b.name, at: b.paired_at, expires: b.expires_at })) : paired;
+const boardList = () => MODE === "live" ? liveBoards.map(b => ({ id: b.id, name: b.name, board: b.view_name || "All services", at: b.paired_at, expires: b.expires_at })) : paired;
 async function loadBoards() {
   if (MODE !== "live" || !perms.has("manage_boards")) return;
   try { liveBoards = (await api("boards")).boards; updateAllowButton(); } catch (e) { toast(e.message); }
@@ -1578,24 +1694,26 @@ const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math
 function renderAllow() {
   const a = document.getElementById("allow");
   a.innerHTML = `
-    <div class="pop-head"><h2 class="p-sub" style="margin:0">Allow a status board</h2><button class="p-close" id="allow-close" aria-label="Close">×</button></div>
-    <label class="field"><span>Board name</span><input id="allow-name" value="${esc(pairName)}"></label>
+    <div class="pop-head"><h2 class="p-sub" style="margin:0">Share ${esc(curView()?.name || "this board")}</h2><button class="p-close" id="allow-close" aria-label="Close">×</button></div>
+    ${!shareInfo().ok ? `<p class="share-blocked" data-state="crit"><b>Sharing not allowed.</b> ${esc(curView().name)} includes private services (${esc(shareInfo().blocked.join(", "))}). Make a board without them to put it on a screen.</p>` : `
+    <label class="field"><span>Screen name</span><input id="allow-name" value="${esc(pairName)}"></label>
     ${MODE === "live" && !liveCode ? `<p class="small">Create a one-time code, then type it on the screen you want to connect.</p>
     <div class="actions"><button class="btn primary" id="allow-new">Create code</button></div>` : `
     <div class="code" id="allow-code">${MODE === "live" ? liveCode.code : pairCode}</div>
-    <p class="small">On the TV, open ${MODE === "live" ? `<b>${esc(location.origin)}/pair</b>` : "the board page"} and enter this code. It works once and expires in <b id="allow-exp">${mmss(codeExpiry() - Date.now())}</b>. The board stays connected for 30 days and can view status but can't snooze, park or clear anything.</p>
-    <div class="actions"><button class="btn" id="allow-new">New code</button>${MODE === "live" ? "" : `<a class="btn primary" href="#pair">Open pairing page</a>`}</div>`}
-    <h3 class="p-sub" style="margin:4px 0 0">Paired boards</h3>
+    <p class="small">On the TV, open ${MODE === "live" ? `<b>${esc(location.origin)}/pair</b>` : "the board page"} and enter this code. It works once and expires in <b id="allow-exp">${mmss(codeExpiry() - Date.now())}</b>. The screen shows this board for 30 days and can't snooze, park or clear anything.</p>
+    <div class="actions"><button class="btn" id="allow-new">New code</button>${MODE === "live" ? "" : `<a class="btn primary" href="#pair">Open pairing page</a>`}</div>`}`}
+    <h3 class="p-sub" style="margin:4px 0 0">Active screens</h3>
     <ul class="paired">${boardList().map((b, i) => {
       const tone = boardTone(b);
       const when = tone === "crit" ? `Expired ${fmtDate(b.expires)}` : tone === "warn" ? `Expires in ${fmtDur(b.expires - Date.now()).split(" ")[0]} · ${fmtDate(b.expires)}` : `Paired ${fmtDate(b.at)} · expires ${fmtDate(b.expires)}`;
-      return `<li${tone ? ` data-tone="${tone}" data-state="${tone}"` : ""}><span><b>${esc(b.name)}</b><span class="when">${when}</span></span><span class="acts">${tone ? `<button class="linkbtn" data-reauth="${i}">Reauthorize</button>` : ""}<button class="linkbtn" data-revoke="${i}">Revoke</button></span></li>`;
+      return `<li${tone ? ` data-tone="${tone}" data-state="${tone}"` : ""}><span><b>${esc(b.name)}</b> · ${esc(b.board || "IT board")}<span class="when">${when}</span></span><span class="acts">${tone ? `<button class="linkbtn" data-reauth="${i}">Reauthorize</button>` : ""}<button class="linkbtn" data-revoke="${i}">Revoke</button></span></li>`;
     }).join("") || `<li>None yet</li>`}</ul>`;
-  document.getElementById("allow-name").oninput = e => pairName = e.target.value || "Status board";
-  document.getElementById("allow-new").onclick = async () => {
-    if (MODE !== "live") { newCode(); renderAllow(); return; }
-    try { liveCode = await api("boards/codes", { method: "POST", body: { name: pairName } }); renderAllow(); } catch (e) { toast(e.message); }
+  if (document.getElementById("allow-name")) document.getElementById("allow-name").oninput = e => pairName = e.target.value || "Status screen";
+  if (document.getElementById("allow-new")) document.getElementById("allow-new").onclick = async () => {
+    if (MODE !== "live") { newCode(); pairView = curView(); renderAllow(); return; }
+    try { liveCode = await api("boards/codes", { method: "POST", body: { name: pairName, view_id: curView()?.id } }); renderAllow(); } catch (e) { toast(e.message); }
   };
+  pairView = curView(); // the box always shares the board on screen
   document.getElementById("allow-close").onclick = () => { closeAllow(); document.getElementById("b-allow").focus(); };
   a.querySelectorAll("[data-revoke]").forEach(b => b.onclick = async () => {
     const x = boardList()[+b.dataset.revoke];
@@ -1625,7 +1743,7 @@ function renderPair() {
   const main = document.getElementById("main");
   main.innerHTML = `<div class="pair"><form id="pair-form" autocomplete="off">
     <h2>Connect this screen</h2>
-    <p class="small">Ask an admin to choose <b>Allow a board</b> in Mission Control, then type the code they see.</p>
+    <p class="small">Ask an admin to open the board they want here and choose <b>Share board</b>, then type the code they see.</p>
     <input id="pair-code" maxlength="7" aria-label="Pairing code" placeholder="XXX-XXX" spellcheck="false">
     <p class="err" id="pair-err" role="alert"></p>
     <button class="btn primary" type="submit">Connect</button>
@@ -1644,13 +1762,16 @@ function renderPair() {
     const norm = x => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (Date.now() > pairExpires) { document.getElementById("pair-err").textContent = "That code has expired. Ask for a new one."; return; }
     if (norm(inp.value) !== norm(pairCode)) { document.getElementById("pair-err").textContent = "That code doesn't match. Check it and try again."; return; }
-    paired.push({ name: pairName, at: Date.now(), expires: Date.now() + BOARD_TTL });
+    const shared = pairView || curView();
+    if (!shareInfo(shared).ok) { document.getElementById("pair-err").textContent = `Sharing not allowed: ${shared.name} includes private services.`; return; }
+    paired.push({ name: pairName, board: shared?.name, at: Date.now(), expires: Date.now() + BOARD_TTL });
+    if (shared) { viewId = shared.id; renderBoardPick(); }
     newCode(); closeAllow(); updateAllowButton(); // the code is spent; the sharer's box closes
     toast(`${pairName} paired. That code no longer works.`);
     kiosk = true; document.body.classList.add("kiosk");
     const tag = document.getElementById("kiosk-tag");
-    tag.innerHTML = `Read-only · ${esc(pairName)} <button class="linkbtn" id="k-exit">exit (demo)</button>`; tag.hidden = false;
-    document.getElementById("k-exit").onclick = () => { kiosk = false; document.body.classList.remove("kiosk"); tag.hidden = true; setView("cards"); };
+    tag.innerHTML = `Read-only · ${esc(pairName)} · ${esc(shared?.name || "")} <button class="linkbtn" id="k-exit">exit (demo)</button>`; tag.hidden = false;
+    document.getElementById("k-exit").onclick = () => { kiosk = false; document.body.classList.remove("kiosk"); tag.hidden = true; renderBoardPick(); setView("cards"); };
     history.replaceState(null, "", "#board");
     setView("board");
   };
@@ -1661,6 +1782,17 @@ addEventListener("hashchange", () => {
   else if (["cards", "list", "board", "log"].includes(h) && !kiosk) setView(h);
   else if (h.startsWith("platform-") && !kiosk) openPlatform(h.slice(9));
 });
+
+function renderBoardPick() {
+  const sel = document.getElementById("board-pick");
+  sel.hidden = VIEWS.length < 2 || kiosk;
+  sel.innerHTML = VIEWS.map(v => `<option value="${esc(v.id)}"${v.id === curView()?.id ? " selected" : ""}>${esc(v.name)}</option>`).join("");
+}
+document.getElementById("board-pick").onchange = e => {
+  viewId = e.target.value; boardPage = 0; newCode(); liveCode = null; // a code belongs to one board
+  try { localStorage.setItem("imc.board", viewId); } catch {}
+  closeAllow(); render();
+};
 
 const THEMES = ["auto", "light", "dark"];
 let theme = "auto";
@@ -1790,7 +1922,7 @@ function renderExpired() {
   const b = session?.board_expired;
   document.getElementById("main").innerHTML = `<div class="pair"><form>
     <h2>Board access expired</h2>
-    <p class="small">"${esc(b?.name || "This board")}" needs to be reauthorized. Ask an admin to open <b>Allow a board</b> and choose <b>Reauthorize</b>. This screen reconnects by itself within a minute.</p>
+    <p class="small">"${esc(b?.name || "This board")}" needs to be reauthorized. Ask an admin to open <b>Share board</b> and choose <b>Reauthorize</b>. This screen reconnects by itself within a minute.</p>
     <p class="alt"><a href="/pair">Pair with a new code instead</a></p>
   </form></div>`;
 }
@@ -1808,12 +1940,13 @@ async function bootLive() {
     if (!session?.instance?.public_board) return setView("login");
   } else if (session.principal.kind === "board") {
     kiosk = true; document.body.classList.add("kiosk"); view = "board";
-    const tag = document.getElementById("kiosk-tag"); tag.textContent = `Read-only · ${session.principal.name}`; tag.hidden = false;
+    const tag = document.getElementById("kiosk-tag"); tag.textContent = `Read-only · ${session.principal.name}${session.principal.view_name ? ` · ${session.principal.view_name}` : ""}`; tag.hidden = false;
   } else {
     showWho();
     if (path === "/board") view = "board";
   }
   document.getElementById("b-allow").hidden = !perms.has("manage_boards");
+  if (session?.principal?.kind === "user") { try { VIEWS = (await api("views")).views; } catch {} renderBoardPick(); }
   await loadLive(); loadBoards(); connectStream();
   setView(view);
 }
@@ -1867,6 +2000,8 @@ try { const v = localStorage.getItem("imc.view"); if (["cards", "list", "log"].i
 const hashView = location.hash.slice(1); if (["cards", "list", "board", "log", "pair"].includes(hashView)) view = hashView;
 if (hashView.startsWith("platform-")) { platformId = hashView.slice(9); view = "platform"; }
 document.body.classList.add(`mode-${MODE}`);
+if (MODE === "demo") computeGroups();
+renderBoardPick();
 tick();
 if (MODE === "live") bootLive();
 else if (MODE === "public") bootPublic();

@@ -54,11 +54,25 @@ retrospect.
 ### Two lanes, and a sister product
 
 - **Status** (this board): is it working? Red, yellow, green, with incidents.
-- **Workload** (next): what's open and outstanding? Front tickets, Jamf and NinjaOne device
-  issues. These are queues, not health. They show **counts, age and trend** (e.g. 17 open,
-  3 past SLA, oldest 6h) and only turn into a status when a threshold is crossed. They get
-  their own section with their own card style, so a busy queue doesn't read as an outage.
-  The JSON driver's rules already cover the threshold part.
+- **Workload** (next): what's open and outstanding? A basic **snapshot** per system, never
+  a replacement for its own reporting. Each snapshot card shows three numbers, their
+  change since the last poll, and a link to the system's report. It turns yellow or red only
+  when a threshold is crossed. Proposed numbers, most actionable first:
+  - **Tickets (Front):**
+    - **stale** (open longer than X days) with the oldest one's age: someone needs to follow
+      up.
+    - **opened in the last hour** compared with the usual for that hour: a surge is often the
+      first sign of an outage, and can suggest a reported issue.
+    - **open now**, as context.
+  - **Devices (Jamf, NinjaOne):**
+    - **checked in within 24h, as % of managed**. A sudden drop is a *status* signal, e.g. an
+      expired APNs certificate or a broken agent, so it can light the platform card.
+    - **not seen in 30 days**: a cleanup list.
+    - **compliance failures** with the top reason (encryption off, OS out of date, endpoint
+      protection missing).
+    - **total managed**, as context.
+  These need only API reads and thresholds. The JSON driver's rules already cover the
+  threshold part; a small "snapshot" card type is the new piece.
 - **Insights** (sister product, same data): metrics and reporting. Availability per service
   and part, time to resolve, incident counts and trends, the noise ledger, and workload
   trends. Read-only, its own page, built on the stored incident records and history. It's
@@ -289,26 +303,61 @@ animates the moves so they read as movement rather than a jump. The production v
 - **Pins** for checks that should always hold their position.
 - Weighting by **business impact** (e.g. Okta DOWN outranks a GitHub DEGRADED).
 
-### Board pairing (no user account on the TV)
+### The TV board: everything on one screen
 
-A board shows status with no signed-in user and has read-only access:
+A wall screen can't be scrolled, so the Board view **fits the screen** instead of flowing
+down it. It's one packed grid of three card sizes: **full** (4×4 cells), **quarter** (2×2)
+and **1/16** (1×1: logo, name, status dot). Smaller cards fill the gaps left by bigger ones.
 
-1. A signed-in admin chooses **Allow a board**, names it ("Lobby TV") and creates a
-   one-time code (`5TM-9XX`, 10-minute expiry, no ambiguous characters). The box has a ×
-   and closes on Escape, an outside click or a view change.
-2. The TV opens `/pair`. Unpaired, it shows only a code entry screen with no status data.
-3. A matching code is **spent on first use**. It becomes a **board token**, stored hashed
-   and valid for **30 days**, with the clearance chosen at pairing (capped at the admin's own,
-   and never `secret`). The admin's box closes on its own and says "Lobby TV paired. That
-   code no longer works." The board is read-only.
-4. **Expiry without re-pairing.** When a board's 30 days run out, the TV shows "Board access
-   expired" and nothing else. In the admin's list it reads "Expired Oct 4" with
-   **Reauthorize**. Reauthorizing extends the same token by 30 days, and the TV reconnects
-   within a minute without anyone touching it. Boards within 7 days of expiry show "Expires
-   in 5 days" with Reauthorize too.
-5. The **Allow a board** button gets a yellow border when any board expires within 7 days,
-   and a red one when any has expired.
-6. Revoke removes a board immediately. Redeeming codes is rate-limited per address.
+1. **Attention first, full size, at the top:** down, degraded, no signal, snoozed, or within
+   30 minutes of recovering. Planned maintenance gets a quarter card.
+2. **Calm services fill the rest, by importance.** Each connector has a `criticality`
+   (high / normal / low). High stays full size even when green; normal shrinks to a quarter
+   card after 7 quiet days; low goes to quarter, then 1/16. A size chosen in the panel is
+   respected.
+3. **If it doesn't fit, the least important shrink first:** full → quarter → 1/16. Highs are
+   last to shrink.
+4. **If even 1/16 cells don't fit, the smallest calm services rotate** through pages every 8
+   seconds, like a departures board ("Quiet services · page 2 of 3"). Attention never
+   rotates.
+5. **A wide outage** (attention would take more than ~60% of the screen) drops attention
+   cards to quarter size, so more problems are visible at once. If problems alone still
+   overflow, the screen scrolls; that's the one case where seeing everything wins over
+   fitting.
+
+The fit is computed from the real screen size and checked after drawing. At 1920×1080 the
+demo's 17 services fit with no paging.
+
+### Boards and sharing
+
+A **board** is a named view, e.g. *IT board* or *IR board* (institutional research): a set
+of groups and/or services. Everyone switches boards from the header, and every view (cards,
+list, board, counts) shows only that board's services. An instance starts with an *IT
+board* showing everything.
+
+**Share board** puts the board you're looking at on a screen:
+
+1. A signed-in admin opens the board and chooses **Share board**, names the **screen**
+   ("Lobby TV") and creates a one-time code (`5TM-9XX`, 10-minute expiry, no ambiguous
+   characters). The box has a × and closes on Escape, an outside click or a view change.
+2. **Sharing not allowed** if the board includes any **private** service (sensitivity
+   `sensitive` or `secret`). The box says so and names those services, but only to someone
+   who can see them. Make a board without them to share it.
+3. The screen opens `/pair`. Unpaired, it shows only a code entry box and no status data.
+4. A matching code is **spent on first use** and becomes a **screen token**, stored hashed
+   and valid for **30 days**. The screen sees staff-level services, **but only its board's**,
+   in every channel: checks, incidents and the live stream. A screen whose board is deleted
+   shows nothing. The admin's box closes on its own ("Lobby TV paired. That code no longer
+   works."). Screens are read-only.
+5. **Active screens** lists each screen with its board ("Lobby TV · IT board").
+   - **Expiry without re-pairing:** an expired screen shows "Board access expired"; in the
+     list it reads "Expired Oct 4" with **Reauthorize**, which extends the same token by 30
+     days. The screen reconnects within a minute.
+   - Screens within 7 days of expiry show **Reauthorize** too.
+   - The **Share board** button turns yellow when a screen expires within 7 days, and red
+     when one has expired.
+6. Revoke removes a screen immediately. A board that screens still show can't be deleted.
+   Redeeming codes is rate-limited per address.
 
 Typing on a TV remote is clumsy, so we can add the reverse flow later: the TV shows the code
 and the admin types it on their laptop. The same token model supports both.
@@ -569,6 +618,10 @@ down-detector anyone can open.
 - Check frequency varies by service. Proactive polls default to hourly or every few hours;
   push sources are event-driven. Tune during testing.
 - Target 1080p and web view. TVs pair through an admin-issued code and get no user account.
+- Boards are named views; **Share board** pairs a screen to one. Boards with private
+  services can't be shared. Screens see staff-level services, limited to their board.
+- The TV board fits one screen: attention full size, calm services sized by criticality,
+  overflow rotates the least important ones.
 - Noise controls: **False alarm** and **Park** (section 2).
 - Light theme uses status banners behind names.
 - Pairing codes are single-use; boards last 30 days and can be reauthorized without
@@ -594,5 +647,5 @@ down-detector anyone can open.
 4. **Hosting:** where the instance runs (it needs to reach internal servers for HTTP checks).
    SSO provider when we add it.
 5. **Sound:** should a new DOWN chime on the board?
-6. **Board clearance default:** boards default to `guest` (public and guest checks only).
-   Should the office wall boards see `viewer` checks such as Jamf and Front?
+6. **Workload thresholds:** what counts as stale (days), and the check-in floor that should
+   light Jamf or NinjaOne.

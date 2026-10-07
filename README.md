@@ -47,7 +47,7 @@ npm run cli -- poll connectors/templates/front-queue.yaml    # see what it would
 | **Card sizes** | Auto-focus gives attention full cards. Services quiet for 7 days shrink to small cards with uptime; *Logo only* tucks one into a tray. Anything that needs attention comes back full size. Density adapts to how many services you watch. |
 | **Platforms** | Microsoft 365, Google Workspace and similar get a page with a card per part. Mark parts you don't use (e.g. Teams) and their incidents stop lighting the board but are still recorded. |
 | **Reported issues** | *Report issue* adds what no source shows (e.g. Sway not saving, confirmed by IT). It counts until a person resolves it. |
-| **TV boards** | An admin chooses *Allow a board* and creates a one-time code; the TV opens `/pair`. Boards are read-only, last 30 days, and can be reauthorized without re-pairing. |
+| **Boards and screens** | Named boards (IT, IR…) pick which services show. *Share board* puts the current board on a TV with a one-time code (the TV opens `/pair`); boards with private services can't be shared. Screens are read-only, last 30 days, and can be reauthorized without re-pairing. The TV board fits one screen and rotates the quietest services if it must. |
 | **AI-assisted connectors** | `POST /mcp` with an API token (`npm run cli -- token:add admin`). The assistant drafts and tests connectors; a person adds credentials and enables them. |
 | **Public demo** | `npm run cli -- snapshot` writes `site/index.html` and `site/status.json`: a static, read-only status page. The *Public demo* workflow publishes it to GitHub Pages. |
 | **Webhooks and heartbeats** | `POST /api/ingest/<id>` and `/api/ping/<id>/<token>`. An admin gets the URLs from `GET /api/connectors/<id>/endpoints`. |
