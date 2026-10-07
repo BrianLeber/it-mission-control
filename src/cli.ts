@@ -66,6 +66,7 @@ async function main() {
         const issues = r.ok ? r.observation.issues : [];
         return {
           id: c.id, name: c.name, group: c.group, icon: c.icon ?? null, link: c.link ?? null, driver: c.driver,
+          platform: c.platform, components: c.components,
           state: r.ok ? worst(issues.map(i => i.state)) : "stale",
           summary: r.ok ? (issues[0]?.summary ?? r.observation.okSummary ?? "Operational") : `Can't read source: ${r.error}`,
           issues,

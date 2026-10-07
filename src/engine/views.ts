@@ -87,7 +87,7 @@ function componentStates(engine: Engine, checkId: string): CheckView["components
     const mine = open.filter(i => (JSON.parse(i.components ?? "[]") as string[]).some(n => n.toLowerCase() === comp.name.toLowerCase()));
     const top = [...mine].sort((a, b) => (rank[b.state] ?? 0) - (rank[a.state] ?? 0))[0];
     return { ...comp, state: top?.state ?? "ok", open: mine.length, summary: top ? (top.ref ? `${top.ref}: ` : "") + top.summary : null };
-  }).sort((a, b) => (rank[b.state] ?? 0) - (rank[a.state] ?? 0) || (a.relevance === "ignore" ? 1 : 0) - (b.relevance === "ignore" ? 1 : 0) || a.name.localeCompare(b.name));
+  }).sort((a, b) => (a.relevance === "ignore" ? 1 : 0) - (b.relevance === "ignore" ? 1 : 0) || (rank[b.state] ?? 0) - (rank[a.state] ?? 0) || a.name.localeCompare(b.name));
 }
 
 /** The worst state in the run of spans that ended most recently, if it ended within the hold. */

@@ -14,6 +14,62 @@ simulated data and a scripted demo feed).
 
 ---
 
+## 0. North Star
+
+| | |
+|---|---|
+| **North Star** | Support organizational health. |
+| **Strategy** | Surface signal and suppress noise. |
+| **Purpose** | Give IT and system administrators clear, timely and actionable data: **in the moment**, **in retrospect**, and **for analysis**. |
+
+Every view has to answer four questions:
+
+1. What is the **current state** of our systems?
+2. Are there any **current issues**?
+3. Have there **been** any issues?
+4. Do we need to **take action**?
+
+**The test for any feature:** does it surface signal or suppress noise for one of those
+questions? If it does neither, it doesn't ship.
+
+### How the system answers today
+
+| Question | In the moment | In retrospect | For analysis |
+|---|---|---|---|
+| Current state | Card border, master meter, board; platform page per part | History strip per check and per part | — |
+| Current issues | Needs attention, card text with vendor reference, Log → Open | Incident timeline (vendor posts, our notes) | — |
+| Been any issues? | PEAK hold (30 min), recent-changes ticker | Log (tracked, archived, all), Markdown export | 90-day records; archived kept permanently |
+| Take action? | Colors and severity order; snooze for "seen, working on it" | Notes on the timeline | — |
+
+**Surfacing signal:** vendor feeds and our own systems in one place; **reported issues**
+for problems a vendor hasn't acknowledged (Sway); vendor references and impact text on the
+card; per-part state on platforms; peak hold; tracked incidents.
+
+**Suppressing noise:** attack fast and release slow; false alarms (closed, repainted,
+key suppressed); park (known and deferred); snooze (time-boxed); **parts marked not used**
+(Teams); ignored and parked items kept out of counts, flashes and the default Open list,
+but still recorded. Suppressed never means deleted: everything stays answerable in
+retrospect.
+
+### Gaps against the North Star (next work, in priority order)
+
+1. **"Do we need to take action?" is implicit.** Color says how bad, not whose move it is.
+   Proposal: every counted incident carries an **action state**: *Ours* (we need to do
+   something), *Vendor's* (wait and communicate), or *None* (informational). Plus an
+   optional owner and next step. The board's attention zone sorts by "Ours" first. This is
+   the biggest remaining step toward "actionable".
+2. **Analysis has records but no reports.** Add a Reports view: availability per service
+   and per part (from history spans), incident count and time to resolve, and a **noise
+   ledger** per source (false alarms, ignored, parked, flapping). The ledger shows which
+   alert rules to tune. The daily and weekly digest (section 5) draws on the same numbers.
+3. **Timeliness of core platforms.** Hourly polling is the default. For platforms people use
+   all day (Microsoft 365, Google Workspace), 10–15 minutes is the better trade.
+4. **People see problems first.** Sway was confirmed by users before Microsoft posted
+   anything. A spike of help-desk tickets (Front) or user reports mentioning a service
+   should **suggest** a report, for one click to confirm.
+
+---
+
 ## 1. Design principles
 
 Taken from game HUDs, watch complications, mixing desks, and the classic Windows Task
@@ -85,6 +141,40 @@ Not every alert deserves a light. There are two tools, and they do different job
 
 Both actions need a signed-in user, record who did it and why, and appear in the signal
 log.
+
+### Platforms, parts and relevance
+
+A broad service like **Microsoft 365** or **Google Workspace** is a **platform**: one
+card on the board, plus its own page with a card per **part** (Exchange Online, SharePoint
+Online, Sway, Teams…). Each part has its own state, current issue and history strip.
+
+- **Parts come from the source** (Microsoft's service name, Statuspage components, Google
+  products) or are listed in the connector file. Parts seen in incidents are added
+  automatically.
+- On the main board, a platform card shows a **strip of small lights, one per part**, with
+  the affected parts named ("SharePoint Online · Sway"), so you can tell which part is down
+  without opening anything.
+- **Mark a part "not used"** (e.g. *Microsoft Teams: we don't use Teams*). An incident that
+  touches **only** parts marked not used is recorded and visible under Log → Ignored, but it
+  never lights the card, the board or the counts. An incident that also touches a part we
+  use still counts. The change applies to open incidents immediately, can be undone, and
+  is logged with who made it. It needs connector rights, because it's a standing decision
+  about what we run.
+
+### Reported issues (manual entries)
+
+Some problems are confirmed before any source shows them. For example: **Sway** lets users
+sign in and edit, but not every change saves, and a refresh drops the unsaved work.
+Microsoft has posted nothing. Anyone with operate rights can **Report issue** on a check or
+on one part of a platform: how bad, what's happening, details, an optional reference.
+
+- A report lights the card like any other issue, marked **REPORTED**, with a full
+  timeline.
+- Vendor polls that don't mention it **don't clear it**. A person **resolves** it, and the
+  text in the note box becomes the resolution.
+- It counts **even on a part marked not used**: someone saw it affect us.
+- For systems nothing else watches, the `manual` driver makes a check whose state comes
+  only from reports.
 
 ### Incidents as records: track and archive
 
@@ -458,6 +548,9 @@ down-detector anyone can open.
 - Public demo: static snapshot plus browser-only history.
 - Incidents are records: vendor reference, timeline, notes; Track (auto-archives on close),
   Archive (exempt from the 90-day purge), Markdown export, Log view.
+- North Star: organizational health, by surfacing signal and suppressing noise (section 0).
+- Platforms with per-part pages; parts can be marked not used; people can report issues
+  that no source shows, and only people resolve them.
 
 **Still open**
 

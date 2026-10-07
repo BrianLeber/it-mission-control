@@ -148,13 +148,13 @@ button, a { color: inherit; font: inherit; }
 @keyframes flash { 0%{opacity:1} 14%{opacity:0} 28%{opacity:1} 42%{opacity:0} 56%{opacity:.8} 70%,100%{opacity:0} }
 
 .c-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; min-width: 0; }
-.card > .c-head, .tile > .t-head {
+.card > .c-head, .tile > .t-head, .comp-card > .cc-head {
   margin: calc(-1 * var(--py)) calc(-1 * var(--px)) 0; padding: 9px var(--px);
   border-radius: calc(var(--r) - 2px) calc(var(--r) - 2px) 0 0;
   background: color-mix(in srgb, var(--s) var(--band), transparent);
   color: color-mix(in srgb, var(--on) var(--band), var(--fg));
 }
-.card[data-state="ok"] > .c-head, .tile[data-state="ok"] > .t-head { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
+.card[data-state="ok"] > .c-head, .tile[data-state="ok"] > .t-head, .comp-card[data-state="ok"] > .cc-head, .comp-card[data-ign] > .cc-head { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
 .card.parked > .c-head, .tile.parked > .t-head { background: transparent; color: var(--fg); }
 .mono { width: 34px; height: 34px; border-radius: 7px; display: grid; place-items: center; background: var(--brand); color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .02em; flex: none; }
 .c-title { min-width: 0; }
@@ -367,6 +367,30 @@ body.mode-live .demo-only, body.mode-public .demo-only, body.mode-public #b-allo
 .empty { color: var(--dim); padding: 24px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r); }
 @media (max-width: 900px) { .inc-item { grid-template-columns: 1fr auto; } .inc-item .when:first-of-type { display: none; } }
 
+/* platforms: parts strip on cards, platform page, part cards */
+.comp-strip { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.cled { width: 9px; height: 9px; border-radius: 2px; background: var(--s); flex: none; }
+.cled[data-state="ok"] { opacity: .35; }
+.cled[data-ign] { background: transparent; border: 1px dashed var(--faint); opacity: 1; }
+.cl-label { margin-left: 6px; font-family: var(--f-data); font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.plat-top { margin: -6px 0 12px; }
+.plat-head { cursor: default; margin-bottom: 26px; }
+.plat-head .c-title h3 { font-size: 26px; }
+.plat-head .mono { width: 48px; height: 48px; font-size: 17px; }
+.plat-head .c-state { font-size: 18px; }
+.comp-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.comp-card { --py: 10px; --px: 12px; position: relative; background: var(--panel); border: 2px solid color-mix(in srgb, var(--s) 85%, transparent); border-radius: var(--r); padding: var(--py) var(--px); display: grid; gap: 6px; min-width: 0; }
+.comp-card[data-state="ok"] { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.comp-card[data-ign] { border: 2px dashed var(--line); opacity: .8; }
+.comp-card[data-ign] .c-state { color: var(--dim); }
+.cc-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cc-head b { font-family: var(--f-display); font-weight: 600; font-size: 16px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comp-card .c-state { font-size: 12px; }
+.comp-card .c-msg { font-size: 13px; min-height: 2.6em; }
+.cc-foot { display: flex; gap: 12px; justify-content: flex-end; }
+.badge.rep { border-color: var(--maint); color: var(--maint); }
+select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r); padding: 7px 9px; font: inherit; font-size: 14px; }
+
 /* panel: snooze and park */
 .snooze { display: inline-flex; border: 1px solid var(--ack); border-radius: var(--r); overflow: hidden; }
 .snooze span { padding: 7px 10px; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--ack); }
@@ -456,11 +480,13 @@ function seedChecks() {
       state: "maint", since: ago(25 * MIN), msg: "Zoom Phone scheduled maintenance, ends 21:00", openState: "maint",
       inc: [[9 * DAY, 3 * HR, "maint"]] },
     { id: "m365", name: "Microsoft 365", group: "Public SaaS", mono: "365", brand: "#c43e1c", src: "poll 1h", via: "Graph service health", url: "https://admin.microsoft.com/#/servicehealth",
-      state: "warn", since: ago(47 * MIN), msg: "SP1489449: Some users are not able to see apps", openState: "warn",
+      platform: true, componentDefs: [{ name: "Exchange Online" }, { name: "SharePoint Online" }, { name: "OneDrive for Business" }, { name: "Microsoft 365 apps" }, { name: "Sway" }, { name: "Microsoft Forms" }, { name: "Planner" }, { name: "Microsoft Teams", relevance: "ignore", note: "We don't use Teams" }],
+      state: "warn", since: ago(47 * MIN), msg: "SP1489449: Some users are not able to see apps (+1 more)", openState: "warn",
       inc: [[2 * DAY, 5 * HR, "warn"], [12 * DAY, 90 * MIN, "crit", true], [20 * DAY, 4 * HR, "warn"]] },
     { id: "okta", name: "Okta", group: "Public SaaS", mono: "Ok", brand: "#2b2bd6", src: "poll 1h", via: "Status RSS", url: "https://status.okta.com/",
       state: "ok", since: ago(11 * DAY), msg: "All systems operational", inc: [[11 * DAY, 35 * MIN, "warn"]] },
     { id: "gws", name: "Google Workspace", group: "Public SaaS", mono: "G", brand: "#1a73e8", src: "poll 1h", via: "Status JSON feed", url: "https://www.google.com/appsstatus/dashboard/",
+      platform: true, componentDefs: ["Gmail", "Google Drive", "Google Docs", "Google Sheets", "Google Calendar", "Google Meet", "Google Chat"].map(name => ({ name })),
       state: "ok", since: ago(5 * DAY), msg: "No active incidents", inc: [[5 * DAY, 3 * HR, "warn"]] },
     { id: "github", name: "GitHub", group: "Public SaaS", mono: "GH", brand: "#24292f", src: "poll 1h", via: "Statuspage API", url: "https://www.githubstatus.com/",
       state: "ok", since: ago(2 * DAY), msg: "All systems operational", inc: [[2 * DAY, 70 * MIN, "crit", true], [8 * DAY, 2 * HR, "warn"], [24 * DAY, 30 * MIN, "warn"]] },
@@ -522,7 +548,7 @@ function seedLog(s) {
     if (!s.incidents.some(j => j.start === i.end)) add(i.end, "ok", "Recovered");
   }
   if (s.id === "veeam") { add(ago(6 * HR + 12 * MIN), "crit", "Email: \"[Failed] Nightly-VMs (2 VMs failed)\" from veeam@example.local", "Mail rule: veeam-job-result"); }
-  if (s.id === "m365") { add(ago(47 * MIN), "warn", "SP1489449: Some users are not able to see apps (SharePoint Online)"); add(ago(12 * MIN), "warn", "SP1489449 updated by Microsoft"); }
+  if (s.id === "m365") { add(ago(47 * MIN), "warn", "SP1489449: Some users are not able to see apps (SharePoint Online)"); add(ago(26 * MIN), "warn", "Reported by Brian L.: Sway: Some changes don't save", "Mission Control"); add(ago(12 * MIN), "warn", "SP1489449 updated by Microsoft"); }
   if (s.id === "fs01") add(ago(72 * MIN), "ack", "Snoozed 4h by Brian L.: \"Archiving old scans tonight\"", "Mission Control");
   if (s.id === "ap3f") { add(ago(9 * DAY) + 5 * MIN, "ok", "Parked by Brian L. until Dec 22: flaps most evenings, no user impact", "Mission Control"); add(ago(7 * MIN), "crit", "\"AP-3F-East went offline\" in #it-network-alerts", "Slack channel rule: meraki-ap"); }
   if (s.id === "front") add(ago(41 * MIN), "warn", "Snapshot: 3 past SLA (threshold 1)", "Front API snapshot");
@@ -540,18 +566,32 @@ function seedIncidents(cs) {
   const name = id => cs.find(c => c.id === id)?.name ?? id;
   const add = (checkId, o) => out.push({
     id: nextIncId++, checkId, checkName: name(checkId), ref: null, detail: null, url: cs.find(c => c.id === checkId)?.url ?? null,
-    startedAt: null, closedAt: null, closeReason: null, tracked: null, archived: null, worst: o.state, updates: [], ...o,
+    startedAt: null, closedAt: null, closeReason: null, tracked: null, archived: null, worst: o.state, updates: [], components: [], manual: false, ignored: false, ...o,
   });
   const c = id => cs.find(x => x.id === id);
   // Open: one per lit card. SP1489449 is the real-world example (timeline text is sample wording).
   add("m365", {
     ref: "SP1489449", title: "Some users are not able to see apps", detail: "SharePoint Online: some users may be unable to see apps.",
-    state: "warn", openedAt: ago(47 * MIN), startedAt: ago(62 * MIN), url: "https://admin.microsoft.com/#/servicehealth/:/alerts/SP1489449",
+    state: "warn", openedAt: ago(47 * MIN), startedAt: ago(62 * MIN), url: "https://admin.microsoft.com/#/servicehealth/:/alerts/SP1489449", components: ["SharePoint Online"],
     updates: [
       { t: ago(55 * MIN), kind: "source", text: "Title: Some users are not able to see apps\nUser impact: Users may be unable to see apps in SharePoint Online.\nCurrent status: Investigating.", by: "Microsoft Graph" },
       { t: ago(47 * MIN), kind: "opened", state: "warn", text: "Degraded: Some users are not able to see apps", by: "Microsoft Graph" },
       { t: ago(12 * MIN), kind: "source", text: "Current status: Reviewing service telemetry to identify the cause. Next update within 2 hours.", by: "Microsoft Graph" },
     ],
+  });
+  // Sway: confirmed by us, no Microsoft alert, so a person reported it.
+  add("m365", {
+    title: "Some changes don't save", components: ["Sway"], manual: true, state: "warn", openedAt: ago(26 * MIN), url: null,
+    detail: "Users can sign in and edit, but not every change is saved. A refresh returns to the last saved state and loses the rest. Confirmed by IT; no Microsoft alert yet.",
+    updates: [{ t: ago(26 * MIN), kind: "opened", state: "warn", text: "Degraded: Some changes don't save", by: "Reported by Brian L." },
+      { t: ago(20 * MIN), kind: "note", text: "Workaround: copy content out before refreshing. Sent to the help desk.", by: "Brian L." }],
+  });
+  // Teams: a real outage for Microsoft, but we don't use Teams, so it's recorded and ignored.
+  add("m365", {
+    ref: "TM-SAMPLE", title: "Users can't join meetings", components: ["Microsoft Teams"], ignored: true, state: "crit", openedAt: ago(34 * MIN),
+    detail: "Microsoft Teams: users may be unable to join meetings.",
+    updates: [{ t: ago(34 * MIN), kind: "opened", state: "crit", text: "Down: Users can't join meetings", by: "Microsoft Graph" },
+      { t: ago(34 * MIN), kind: "action", text: "Ignored: Microsoft Teams is marked not used", by: "Mission Control" }],
   });
   add("veeam", { title: "Job 'Nightly-VMs' failed: 2 of 42 VMs", state: "crit", openedAt: c("veeam").since,
     updates: [{ t: c("veeam").since, kind: "opened", state: "crit", text: "Email \"[Failed] Nightly-VMs (2 VMs failed)\"", by: "Mail rule: veeam-job-result" }] });
@@ -571,7 +611,7 @@ function seedIncidents(cs) {
     updates: [{ t: c("ap3f").since, kind: "opened", state: "crit", text: "\"AP-3F-East went offline\" in #it-network-alerts", by: "Slack channel rule: meraki-ap" }] });
   // Closed, with a tracked-then-archived example and a manually archived one.
   add("m365", {
-    ref: "EX918273", title: "Delays receiving external email", detail: "Exchange Online: some users may see delays receiving external email.",
+    ref: "EX918273", title: "Delays receiving external email", detail: "Exchange Online: some users may see delays receiving external email.", components: ["Exchange Online"],
     state: "ok", worst: "warn", openedAt: ago(2 * DAY), startedAt: ago(2 * DAY + 20 * MIN), closedAt: ago(2 * DAY) + 5 * HR, closeReason: "cleared",
     tracked: { by: "Brian L.", at: ago(2 * DAY) + 10 * MIN }, archived: { by: "auto (tracked)", at: ago(2 * DAY) + 5 * HR },
     updates: [
@@ -608,7 +648,7 @@ function seedIncidents(cs) {
 /** Keeps the demo's incident records in step with status changes. */
 function demoIncident(s, state, msg, origin, opts) {
   const now = Date.now();
-  const open = INCIDENTS.find(i => i.checkId === s.id && !i.closedAt);
+  const open = INCIDENTS.find(i => i.checkId === s.id && !i.closedAt && !i.manual && !i.ignored);
   if (state === "ok") {
     if (!open) return;
     const reason = opts.logState === "false" ? "false_alarm" : /manually/i.test(msg) ? "manual" : "cleared";
@@ -621,7 +661,7 @@ function demoIncident(s, state, msg, origin, opts) {
   } else if (!open) {
     const ref = (msg.match(/\b([A-Z]{2}\d{5,})\b/) || [])[1] || null;
     INCIDENTS.unshift({ id: nextIncId++, checkId: s.id, checkName: s.name, ref, title: msg.replace(/^(Incident|Email|Classifier): /, ""), detail: null, url: s.url,
-      state, worst: state, openedAt: now, startedAt: null, closedAt: null, closeReason: null, tracked: null, archived: null,
+      components: [], manual: false, ignored: false, state, worst: state, openedAt: now, startedAt: null, closedAt: null, closeReason: null, tracked: null, archived: null,
       updates: [{ t: now, kind: "opened", state, text: `${STATES[state].label}: ${msg}`, by: origin }] });
   } else if (state === "ack") {
     open.state = "ack"; open.updates.push({ t: now, kind: "action", state: "ack", text: msg.replace(/ by you$/, ""), by: "you" });
@@ -632,6 +672,43 @@ function demoIncident(s, state, msg, origin, opts) {
   }
 }
 
+const localIncidents = () => MODE === "public" ? PUBLIC_INCIDENTS : INCIDENTS;
+const countedOpen = checkId => localIncidents().filter(i => i.checkId === checkId && !i.closedAt && !i.ignored);
+const worstOf = list => list.reduce((w, i) => STATES[i.state].rank > STATES[w].rank ? i.state : w, "ok");
+function summaryOf(list) {
+  const top = [...list].sort((a, b) => STATES[b.state].rank - STATES[a.state].rank || b.openedAt - a.openedAt)[0];
+  return `${top.ref ? `${top.ref}: ` : top.manual && top.components[0] ? `${top.components[0]}: ` : ""}${top.title}${list.length > 1 ? ` (+${list.length - 1} more)` : ""}`;
+}
+/** Demo: set a check's state from its counted open incidents. */
+function recomputeDemoCheck(s, origin) {
+  const rest = countedOpen(s.id);
+  const state = rest.length ? worstOf(rest) : "ok";
+  apply(s.id, state, rest.length ? summaryOf(rest) : "Operational", origin, { skipIncident: true });
+}
+
+// ---------- platforms: parts and relevance ----------
+const isPlatform = s => !!s.platform;
+const defOf = (s, name) => (s.componentDefs || []).find(d => d.name.toLowerCase() === name.toLowerCase());
+function componentsOf(s) {
+  if (!isPlatform(s)) return [];
+  if (MODE === "live") return s.components || [];
+  const names = new Map((s.componentDefs || []).map(d => [d.name.toLowerCase(), d.name]));
+  for (const i of localIncidents()) if (i.checkId === s.id) for (const n of i.components || []) if (!names.has(n.toLowerCase())) names.set(n.toLowerCase(), n);
+  const open = localIncidents().filter(i => i.checkId === s.id && !i.closedAt);
+  return [...names.values()].map(name => {
+    const mine = open.filter(i => (i.components || []).some(c => c.toLowerCase() === name.toLowerCase()));
+    const top = [...mine].sort((a, b) => STATES[b.state].rank - STATES[a.state].rank)[0];
+    const d = defOf(s, name);
+    return { name, relevance: d?.relevance || "normal", note: d?.note, state: top?.state || "ok", open: mine.length, summary: top ? `${top.ref ? `${top.ref}: ` : ""}${top.title}` : null };
+  }).sort((a, b) => (a.relevance === "ignore") - (b.relevance === "ignore") || STATES[b.state].rank - STATES[a.state].rank || a.name.localeCompare(b.name));
+}
+function compStrip(s) {
+  const cs = componentsOf(s); if (!cs.length) return "";
+  const hit = cs.filter(c => c.state !== "ok" && c.relevance !== "ignore");
+  return `<div class="comp-strip" aria-label="${esc(s.name)} parts">${cs.map(c => `<span class="cled" data-state="${c.state}"${c.relevance === "ignore" ? " data-ign" : ""} title="${esc(c.name)}: ${c.relevance === "ignore" ? "not used" : STATES[c.state].label.toLowerCase()}"></span>`).join("")}
+    <span class="cl-label">${hit.length ? hit.map(c => esc(c.name)).join(" · ") : `${cs.filter(c => c.relevance !== "ignore").length} parts OK`}</span></div>`;
+}
+
 const sleep0 = () => Promise.resolve();
 const demoIncidents = {
   async list(f = {}) {
@@ -639,8 +716,9 @@ const demoIncidents = {
     const q = (f.q || "").trim().toLowerCase();
     return INCIDENTS.filter(i =>
       (!f.check || i.checkId === f.check) &&
-      (f.status === "open" ? !i.closedAt : f.status === "closed" ? !!i.closedAt : f.status === "tracked" ? !!i.tracked : f.status === "archived" ? !!i.archived : true) &&
-      (!q || [i.ref, i.title, i.detail, i.checkName].some(x => x && x.toLowerCase().includes(q))))
+      (f.status === "open" ? !i.closedAt && !i.ignored : f.status === "closed" ? !!i.closedAt : f.status === "tracked" ? !!i.tracked : f.status === "archived" ? !!i.archived
+        : f.status === "ignored" ? !!i.ignored : f.status === "reported" ? !!i.manual : true) &&
+      (!q || [i.ref, i.title, i.detail, i.checkName, ...(i.components || [])].some(x => x && x.toLowerCase().includes(q))))
       .sort((a, b) => (!!a.closedAt - !!b.closedAt) || b.openedAt - a.openedAt).slice(0, f.limit || 200);
   },
   async get(id) { await sleep0(); const i = INCIDENTS.find(x => x.id === id); return i && { ...i, updates: [...i.updates].sort((a, b) => a.t - b.t) }; },
@@ -657,6 +735,39 @@ const demoIncidents = {
     i.updates.push({ t: Date.now(), kind: "action", text: on ? "Archived: kept permanently" : "Removed from the archive", by: "you" });
   },
   async note(id, text) { INCIDENTS.find(x => x.id === id).updates.push({ t: Date.now(), kind: "note", text, by: "you" }); },
+  async report(checkId, f) {
+    const s = checks.find(c => c.id === checkId), now = Date.now(), id = nextIncId++;
+    INCIDENTS.unshift({ id, checkId, checkName: s.name, ref: f.ref || null, title: f.title, detail: f.detail || null, url: null,
+      state: f.state, worst: f.state, openedAt: now, startedAt: null, closedAt: null, closeReason: null, tracked: null, archived: null,
+      components: f.component ? [f.component] : [], manual: true, ignored: false,
+      updates: [{ t: now, kind: "opened", state: f.state, text: `${STATES[f.state].label}: ${f.title}${f.detail ? ` (${f.detail})` : ""}`, by: "Reported by you" }] });
+    s.log.unshift({ t: now, state: f.state, m: `Reported by you: ${f.component ? `${f.component}: ` : ""}${f.title}`, o: "Mission Control" });
+    recomputeDemoCheck(s, "Reported by you");
+    return id;
+  },
+  async resolve(id, note) {
+    const i = INCIDENTS.find(x => x.id === id), now = Date.now();
+    if (!i.manual) throw new Error("This one comes from the source and closes when the source clears it.");
+    if (note) i.updates.push({ t: now, kind: "note", text: note, by: "you" });
+    Object.assign(i, { closedAt: now, closeReason: "manual", state: "ok" });
+    i.updates.push({ t: now, kind: "closed", state: "ok", text: "Resolved", by: "you" });
+    if (i.tracked && !i.archived) { i.archived = { by: "auto (tracked)", at: now }; i.updates.push({ t: now, kind: "action", text: "Archived automatically because it was tracked", by: "Mission Control" }); }
+    recomputeDemoCheck(checks.find(c => c.id === i.checkId), "Mission Control");
+  },
+  async relevance(checkId, name, relevance) {
+    const s = checks.find(c => c.id === checkId), now = Date.now();
+    const d = defOf(s, name) || (s.componentDefs = s.componentDefs || [], s.componentDefs.push({ name }), defOf(s, name));
+    d.relevance = relevance; d.note = relevance === "ignore" ? "Marked not used by you" : undefined;
+    for (const i of INCIDENTS) {
+      if (i.checkId !== checkId || i.closedAt || i.manual || !(i.components || []).length) continue;
+      const ign = i.components.every(c => defOf(s, c)?.relevance === "ignore");
+      if (ign === !!i.ignored) continue;
+      i.ignored = ign;
+      i.updates.push({ t: now, kind: "action", text: ign ? `Ignored: ${name} is marked not used` : `Counts again: ${name} is in use`, by: "you" });
+    }
+    s.log.unshift({ t: now, state: s.state, m: `${name} marked ${relevance === "ignore" ? "not used" : "in use"} by you`, o: "Mission Control" });
+    recomputeDemoCheck(s, "Mission Control");
+  },
 };
 const liveIncidents = {
   list: async (f = {}) => (await api(`incidents?${new URLSearchParams(Object.entries({ status: f.status || "all", q: f.q || "", check: f.check || "", limit: String(f.limit || 200) }).filter(([, v]) => v))}`)).incidents,
@@ -664,6 +775,9 @@ const liveIncidents = {
   track: (id, on) => api(`incidents/${id}/track`, { method: "POST", body: { on } }),
   archive: (id, on) => api(`incidents/${id}/archive`, { method: "POST", body: { on } }),
   note: (id, text) => api(`incidents/${id}/notes`, { method: "POST", body: { text } }),
+  report: async (checkId, f) => (await api(`checks/${checkId}/report`, { method: "POST", body: f })).id,
+  resolve: (id, note) => api(`incidents/${id}/resolve`, { method: "POST", body: { note } }),
+  relevance: (checkId, name, relevance) => api(`checks/${checkId}/components/${encodeURIComponent(name)}`, { method: "PUT", body: { relevance } }),
 };
 let PUBLIC_INCIDENTS = [];
 const publicIncidents = { ...demoIncidents,
@@ -671,6 +785,7 @@ const publicIncidents = { ...demoIncidents,
   async get(id) { const i = PUBLIC_INCIDENTS.find(x => x.id === id); return i && { ...i }; },
 };
 const incStore = () => MODE === "live" ? liveIncidents : MODE === "public" ? publicIncidents : demoIncidents;
+const canManage = () => MODE === "demo" || perms.has("manage_connectors");
 const trackedRef = s => {
   const i = MODE === "live" ? (s.issues || []).find(x => x.tracked) : INCIDENTS.find(x => x.checkId === s.id && !x.closedAt && x.tracked);
   return i ? (i.ref || `#${i.id}`) : null;
@@ -703,9 +818,15 @@ const changes = []; // recent transitions for the board ticker
 
 // --- state changes
 function apply(id, state, msg, origin, opts = {}) {
-  const s = checks.find(c => c.id === id); if (!s || s.state === state) return;
+  const s = checks.find(c => c.id === id); if (!s) return;
+  if (MODE === "demo" && !opts.skipIncident && s.state !== state) {
+    demoIncident(s, state, msg, origin, opts);
+    // Other counted issues (e.g. our own Sway report) keep the check lit after one clears.
+    const rest = countedOpen(s.id);
+    if (state === "ok" && rest.length) { state = worstOf(rest); msg = summaryOf(rest); }
+  }
+  if (s.state === state) { if (msg !== s.msg) { s.msg = msg; render(); } return; }
   const now = Date.now(), prev = s.state;
-  if (MODE === "demo") demoIncident(s, state, msg, origin, opts);
   const open = s.incidents.find(i => i.end === null);
   if (open) open.end = now;
   if (state !== "ok") s.incidents.push({ start: now, end: null, state });
@@ -815,8 +936,9 @@ function cardHTML(s) {
     </div>
     <div class="c-state">${stateHTML(s)}${durHTML(s)}</div>
     <p class="c-msg">${esc(s.parked ? s.parked.reason : s.msg)}</p>
+    ${compStrip(s)}
     ${histHTML(s, "card")}
-    <div class="c-foot"><span>${seenText(s)}</span>${trackedRef(s) ? `<span class="trk-chip" title="Tracked incident: kept as a record when it closes">◎ ${esc(trackedRef(s))}</span>` : ""}${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" data-stop>source ↗</a>` : ""}</div>
+    <div class="c-foot"><span>${seenText(s)}</span>${trackedRef(s) ? `<span class="trk-chip" title="Tracked incident: kept as a record when it closes">◎ ${esc(trackedRef(s))}</span>` : ""}${isPlatform(s) && view !== "board" ? `<button class="linkbtn" data-plat="${s.id}" data-stop>parts ›</button>` : ""}${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" data-stop>source ↗</a>` : ""}</div>
   </article>`;
 }
 function rowHTML(s) {
@@ -896,6 +1018,7 @@ function render() {
   if (view === "login") { if (!document.getElementById("login-form")) renderLogin(); return; }
   if (view === "expired") { renderExpired(); return; }
   if (view === "log") { renderTop(); renderLog(); return; }
+  if (view === "platform") { renderTop(); renderPlatform(); return; }
   const before = new Map([...main.querySelectorAll("[data-id]")].map(el => [el.dataset.id, el.getBoundingClientRect()]));
   main.innerHTML = view === "cards" ? renderCards() : view === "list" ? renderList() : renderBoard();
   renderTop();
@@ -932,7 +1055,9 @@ function renderPanel() {
         ${s.state !== "ok" && s.state !== "maint" ? `<button class="btn" id="p-false" title="Close this alert and record it as noise">False alarm</button>` : ""}
         ${s.state !== "ok" ? `<button class="btn" id="p-clear">Clear manually</button>` : ""}
         ${s.parked ? `<button class="btn" id="p-unpark">Unpark</button>` : `<button class="btn" id="p-park" aria-expanded="false" aria-controls="park-form">Park…</button>`}
-        ${isPolled(s) || /^http /.test(s.src) ? `<button class="btn" id="p-poll" title="Ask the source again now instead of waiting for the next poll">Check now</button>` : ""}`}
+        ${isPolled(s) || /^http /.test(s.src) ? `<button class="btn" id="p-poll" title="Ask the source again now instead of waiting for the next poll">Check now</button>` : ""}
+        <button class="btn" id="p-report" title="Add something you've confirmed that no source shows">Report issue</button>`}
+        ${isPlatform(s) && !kiosk ? `<button class="btn" id="p-plat">Parts of ${esc(s.name)}</button>` : ""}
       </div>
       ${!canOperate() ? "" : `<form class="park-form" id="park-form" hidden>
         <p class="small">Parked checks keep recording history but stop lighting the board. Use this for known issues that can wait.</p>
@@ -964,6 +1089,8 @@ function renderPanel() {
   if ($("p-clear")) $("p-clear").onclick = () => act.clear(s);
   if ($("p-unpark")) $("p-unpark").onclick = () => act.unpark(s);
   if ($("p-poll")) $("p-poll").onclick = () => act.poll(s);
+  if ($("p-report")) $("p-report").onclick = () => openReport(s);
+  if ($("p-plat")) $("p-plat").onclick = () => { closePanel(); openPlatform(s.id); };
   if ($("p-park")) $("p-park").onclick = e => { const f = $("park-form"); f.hidden = !f.hidden; e.currentTarget.setAttribute("aria-expanded", String(!f.hidden)); if (!f.hidden) $("park-reason").focus(); };
   if ($("park-form")) $("park-form").onsubmit = e => {
     e.preventDefault();
@@ -1028,7 +1155,7 @@ const incWhen = i => i.closedAt
   ? `lasted ${fmtDur(i.closedAt - (i.startedAt || i.openedAt))} · ${fmtDate(i.openedAt)}`
   : `open ${fmtDur(Date.now() - (i.startedAt || i.openedAt))}`;
 const incState = i => i.closedAt ? (i.state === "false" ? "false" : "ok") : i.state;
-const incBadges = i => `${i.tracked ? `<span class="badge trk">TRACKED</span>` : ""}${i.archived ? `<span class="badge">ARCHIVED</span>` : ""}`;
+const incBadges = i => `${i.manual ? `<span class="badge rep" title="Reported by our team; no vendor alert">REPORTED</span>` : ""}${i.ignored ? `<span class="badge" title="Touches only parts marked not used">IGNORED</span>` : ""}${i.tracked ? `<span class="badge trk">TRACKED</span>` : ""}${i.archived ? `<span class="badge">ARCHIVED</span>` : ""}`;
 async function fillPanelIncidents(s) {
   const box = document.getElementById("p-incidents"); if (!box) return;
   let list;
@@ -1062,6 +1189,7 @@ async function showIncident(id) {
       ${i.detail ? `<p class="small">${esc(i.detail)}</p>` : ""}
       <div class="actions">
         ${i.url ? `<a class="btn primary" href="${esc(i.url)}" target="_blank" rel="noopener">Open source ↗</a>` : ""}
+        ${op && !i.closedAt && i.manual ? `<button class="btn primary" id="inc-resolve" title="Close this report. Text in the note box is kept as the resolution.">Resolve</button>` : ""}
         ${op && !i.closedAt ? `<button class="btn" id="inc-track">${i.tracked ? "Stop tracking" : "Track"}</button>` : ""}
         ${op && i.closedAt ? `<button class="btn" id="inc-archive">${i.archived ? "Remove from archive" : "Archive"}</button>` : ""}
         <button class="btn" id="inc-copy">Copy as Markdown</button>
@@ -1070,7 +1198,9 @@ async function showIncident(id) {
     </div>
     <div class="p-body">
       <dl class="facts">
-        <dt>Service</dt><dd>${esc(i.checkName)}</dd>
+        <dt>Service</dt><dd>${esc(i.checkName)}${(i.components || []).length ? ` · ${esc(i.components.join(", "))}` : ""}</dd>
+        ${i.manual ? `<dt>Source</dt><dd>Reported by our team. Counts until someone resolves it.</dd>` : ""}
+        ${i.ignored ? `<dt>Relevance</dt><dd>Ignored: it touches only parts marked not used, so it doesn't light the board.</dd>` : ""}
         ${i.startedAt ? `<dt>Started</dt><dd>${fmtStamp(i.startedAt)} (per source)</dd>` : ""}
         <dt>Detected</dt><dd>${fmtStamp(i.openedAt)}</dd>
         ${i.closedAt ? `<dt>Closed</dt><dd>${fmtStamp(i.closedAt)} · lasted ${fmtDur(i.closedAt - (i.startedAt || i.openedAt))}</dd>` : `<dt>Open for</dt><dd>${fmtDur(Date.now() - (i.startedAt || i.openedAt))}</dd>`}
@@ -1091,6 +1221,10 @@ async function showIncident(id) {
   const after = async () => { if (MODE === "live") await loadLive(); else render(); showIncident(id); };
   if ($("inc-track")) $("inc-track").onclick = () => incStore().track(id, !i.tracked).then(() => { toast(i.tracked ? "Stopped tracking." : "Tracking. It will be archived when it closes."); after(); }, e => toast(e.message));
   if ($("inc-archive")) $("inc-archive").onclick = () => incStore().archive(id, !i.archived).then(() => { toast(i.archived ? "Removed from the archive." : "Archived. The record is kept permanently."); after(); }, e => toast(e.message));
+  if ($("inc-resolve")) $("inc-resolve").onclick = () => {
+    const note = $("inc-note-text")?.value.trim();
+    incStore().resolve(id, note || undefined).then(() => { toast("Resolved."); after(); }, e => toast(e.message));
+  };
   if ($("inc-note")) $("inc-note").onsubmit = e => {
     e.preventDefault();
     const text = $("inc-note-text").value.trim(); if (!text) return;
@@ -1102,6 +1236,109 @@ async function showIncident(id) {
     try { navigator.clipboard.writeText(md).then(() => toast("Copied as Markdown."), show); } catch { show(); }
   };
 }
+function openReport(s, comp = "") {
+  openId = s.id; panelInc = "report";
+  const p = document.getElementById("panel"), cs = componentsOf(s);
+  p.hidden = false; document.getElementById("scrim").hidden = false;
+  p.dataset.state = "warn";
+  p.innerHTML = `
+    <div class="p-head">
+      <div class="pop-head"><button class="linkbtn" id="rep-back">← ${esc(s.name)}</button><button class="p-close" id="p-close" aria-label="Close">×</button></div>
+      <h3 class="inc-h">Report an issue</h3>
+      <p class="small">For a problem you've confirmed that no source shows yet, or for a system nothing else watches. It lights the card and stays until someone resolves it.</p>
+    </div>
+    <form class="p-body note-form" id="rep-form">
+      ${cs.length ? `<label class="field"><span>Part</span><select id="rep-comp"><option value="">The whole service</option>${cs.map(c => `<option${c.name === comp ? " selected" : ""}>${esc(c.name)}</option>`).join("")}<option value="__other">Another part…</option></select></label>
+      <label class="field" id="rep-other-l" hidden><span>Part name</span><input id="rep-other" maxlength="80"></label>` : ""}
+      <label class="field"><span>How bad</span><select id="rep-state">
+        <option value="warn">Degraded: usable, but not fully</option><option value="crit">Down: can't be used</option><option value="maint">Maintenance: planned work</option></select></label>
+      <label class="field"><span>What's happening</span><input id="rep-title" required maxlength="200" placeholder="e.g. Some changes don't save"></label>
+      <label class="field"><span>Details</span><textarea id="rep-detail" rows="4" placeholder="Who is affected, what you confirmed, any workaround"></textarea></label>
+      <label class="field"><span>Reference (optional)</span><input id="rep-ref" maxlength="40" placeholder="A vendor case or ticket number"></label>
+      <p class="err" id="rep-err" role="alert"></p>
+      <div class="actions"><button class="btn primary" type="submit">Report issue</button></div>
+    </form>`;
+  const $ = x => document.getElementById(x);
+  $("p-close").onclick = closePanel;
+  $("rep-back").onclick = () => { panelInc = null; renderPanel(); };
+  if ($("rep-comp")) $("rep-comp").onchange = e => { $("rep-other-l").hidden = e.target.value !== "__other"; };
+  $("rep-title").focus();
+  $("rep-form").onsubmit = async e => {
+    e.preventDefault();
+    let component = $("rep-comp")?.value || "";
+    if (component === "__other") component = $("rep-other").value.trim();
+    try {
+      const id = await incStore().report(s.id, { state: $("rep-state").value, title: $("rep-title").value.trim(), detail: $("rep-detail").value.trim() || undefined, ref: $("rep-ref").value.trim() || undefined, component: component || undefined });
+      toast(`Reported. ${s.name} stays lit until someone resolves it.`);
+      if (MODE === "live") await loadLive(); else render();
+      showIncident(id);
+    } catch (err) { $("rep-err").textContent = err.message; }
+  };
+}
+
+// ---------- platform page: one card per part ----------
+let platformId = null;
+function openPlatform(id) { platformId = id; history.replaceState(null, "", `#platform-${id}`); setView("platform"); window.scrollTo(0, 0); }
+function renderPlatform() {
+  const main = document.getElementById("main");
+  const s = checks.find(c => c.id === platformId);
+  if (!s) { main.innerHTML = `<p class="empty">That platform isn't available.</p>`; return; }
+  const cs = componentsOf(s), st = STATES[s.state];
+  const hit = cs.filter(c => c.state !== "ok" && c.relevance !== "ignore").length, unused = cs.filter(c => c.relevance === "ignore").length;
+  const op = canOperate() && MODE !== "public";
+  main.innerHTML = `
+    <div class="plat-top"><button class="linkbtn" id="plat-back">← All services</button></div>
+    <article class="card plat-head" data-state="${s.state}">
+      <div class="c-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span>
+        <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">Platform · ${cs.length} parts · ${s.src}</span></div></div>
+      <div class="c-state">${stateHTML(s)}${durHTML(s)}</div>
+      <p class="c-msg">${esc(s.msg)}</p>
+      ${histHTML(s, "wide")}
+      <div class="actions">${s.url ? `<a class="btn primary" href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a>` : ""}
+        ${op ? `<button class="btn" id="plat-report">Report issue</button>` : ""}<button class="btn" id="plat-panel">Details and actions</button></div>
+    </article>
+    ${section("Parts", `${hit} affected${unused ? ` · ${unused} not used` : ""}`, `<div class="comp-grid">${cs.map(c => {
+      const ign = c.relevance === "ignore";
+      return `<article class="comp-card" data-state="${c.state}"${ign ? " data-ign" : ""}>
+        <div class="cc-head"><b>${esc(c.name)}</b>${ign ? `<span class="parked-tag" title="${esc(c.note || "Not used by us")}">NOT USED</span>` : ""}</div>
+        <div class="c-state"><span class="glyph">${STATES[c.state].glyph}</span>${ign && c.state !== "ok" ? `${STATES[c.state].label} · IGNORED` : STATES[c.state].label}</div>
+        <p class="c-msg">${esc(c.summary || (ign ? (c.note || "Not used by us.") + " Issues here are recorded but don't light the board." : "No open issues"))}</p>
+        <div class="comp-hist" data-comp="${esc(c.name)}"></div>
+        <div class="cc-foot">${op ? `<button class="linkbtn" data-report="${esc(c.name)}">Report issue</button>` : ""}
+          ${canManage() && MODE !== "public" ? `<button class="linkbtn" data-rel="${esc(c.name)}" data-to="${ign ? "normal" : "ignore"}">${ign ? "Mark in use" : "Mark not used"}</button>` : ""}</div>
+      </article>`;
+    }).join("")}</div>`)}
+    ${section(`${s.name} incidents`, null, `<div class="inc-list" id="plat-inc"><p class="small">Loading…</p></div>`)}`;
+  const $ = x => document.getElementById(x);
+  $("plat-back").onclick = () => setView("cards");
+  $("plat-panel").onclick = () => openPanel(s.id);
+  if ($("plat-report")) $("plat-report").onclick = () => openReport(s);
+  main.querySelectorAll("[data-report]").forEach(b => b.onclick = () => openReport(s, b.dataset.report));
+  main.querySelectorAll("[data-rel]").forEach(b => b.onclick = async () => {
+    const name = b.dataset.rel, to = b.dataset.to;
+    try {
+      await incStore().relevance(s.id, name, to);
+      toast(to === "ignore" ? `${name} marked not used. Its incidents are still recorded but won't light the board.` : `${name} counts again.`);
+      if (MODE === "live") await loadLive(); else render();
+    } catch (e) { toast(e.message); }
+  });
+  fillPlatformIncidents(s);
+}
+async function fillPlatformIncidents(s) {
+  let list;
+  try { list = await incStore().list({ check: s.id, status: "all", limit: 300 }); } catch (e) { return; }
+  const box = document.getElementById("plat-inc"); if (!box) return;
+  box.innerHTML = list.length ? list.slice(0, 40).map(incItemHTML).join("") : `<p class="empty">No incidents recorded for ${esc(s.name)} yet.</p>`;
+  bindIncItems(box);
+  // Each part gets its own history strip, built from the incidents that touched it.
+  document.querySelectorAll(".comp-hist").forEach(el => {
+    const name = el.dataset.comp.toLowerCase();
+    const spans = list.filter(i => (i.components || []).some(c => c.toLowerCase() === name))
+      .map(i => ({ start: i.startedAt || i.openedAt, end: i.closedAt, state: i.ignored ? "false" : i.closedAt ? (i.closeReason === "false_alarm" ? "false" : i.worst) : i.state }));
+    el.innerHTML = histHTML({ incidents: spans, monitoredFrom: s.monitoredFrom }, "tile");
+  });
+}
+
 const KIND = { opened: "DETECTED", source: "VENDOR UPDATE", state: "STATE", action: "ACTION", note: "NOTE", closed: "CLOSED", reopened: "REOPENED" };
 function incidentMarkdown(i) {
   const iso = t => new Date(t).toISOString().replace("T", " ").slice(0, 16) + " UTC";
@@ -1126,7 +1363,7 @@ function renderLog() {
   const main = document.getElementById("main");
   if (!document.getElementById("log-q")) {
     main.innerHTML = `<div class="log-tools">
-      <div class="seg" role="group" aria-label="Which incidents">${["open", "tracked", "archived", "all"].map(k =>
+      <div class="seg" role="group" aria-label="Which incidents">${["open", "reported", "tracked", "ignored", "archived", "all"].map(k =>
         `<button data-logf="${k}" aria-pressed="${logFilter.status === k}">${k[0].toUpperCase() + k.slice(1)}</button>`).join("")}</div>
       <input id="log-q" type="search" placeholder="Search by reference, service or text, e.g. SP1489449" aria-label="Search incidents" value="${esc(logFilter.q)}">
     </div><div class="inc-list" id="inc-list"></div>`;
@@ -1143,17 +1380,21 @@ async function fillLog() {
   const box = document.getElementById("inc-list"); if (!box) return;
   let list;
   try { list = await incStore().list({ status: logFilter.status, q: logFilter.q, limit: 300 }); } catch (e) { box.innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
-  const words = { open: "No open incidents.", tracked: "Nothing tracked. Open an incident and choose Track to follow it and keep its record.", archived: "Nothing archived yet. Tracked incidents land here when they close.", all: "No incidents recorded yet." };
-  box.innerHTML = list.length ? list.map(i => {
-    const st = incState(i);
-    return `<button class="inc-item" data-inc="${i.id}" data-check="${i.checkId}" data-state="${st}">
-      <span class="st">${STATES[st].glyph} ${i.closedAt ? (st === "false" ? "FALSE ALARM" : "RESOLVED") : STATES[st].label}</span>
-      <span class="inc-ref">${esc(i.ref || `#${i.id}`)}</span>
-      <span style="min-width:0"><span class="t">${esc(i.title)}</span><span class="svc">${esc(i.checkName)}</span></span>
-      <span class="when">${fmtStamp(i.openedAt)}</span>
-      <span class="when">${i.closedAt ? `lasted ${fmtDur(i.closedAt - (i.startedAt || i.openedAt))}` : `open ${fmtDur(Date.now() - (i.startedAt || i.openedAt))}`}${incBadges(i)}</span>
-    </button>`;
-  }).join("") : `<p class="empty">${logFilter.q ? `Nothing matches "${esc(logFilter.q)}".` : words[logFilter.status]}</p>`;
+  const words = { open: "No open incidents.", reported: "Nothing reported by the team. Use Report issue on a card for problems no source shows.", ignored: "Nothing ignored. Incidents on parts marked not used show up here.", tracked: "Nothing tracked. Open an incident and choose Track to follow it and keep its record.", archived: "Nothing archived yet. Tracked incidents land here when they close.", all: "No incidents recorded yet." };
+  box.innerHTML = list.length ? list.map(incItemHTML).join("") : `<p class="empty">${logFilter.q ? `Nothing matches "${esc(logFilter.q)}".` : words[logFilter.status]}</p>`;
+  bindIncItems(box);
+}
+function incItemHTML(i) {
+  const st = incState(i);
+  return `<button class="inc-item" data-inc="${i.id}" data-check="${i.checkId}" data-state="${i.ignored && !i.closedAt ? "stale" : st}">
+    <span class="st">${STATES[st].glyph} ${i.closedAt ? (st === "false" ? "FALSE ALARM" : "RESOLVED") : STATES[st].label}</span>
+    <span class="inc-ref">${esc(i.ref || `#${i.id}`)}</span>
+    <span style="min-width:0"><span class="t">${esc(i.title)}</span><span class="svc">${esc(i.checkName)}${(i.components || []).length ? ` · ${esc(i.components.join(", "))}` : ""}</span></span>
+    <span class="when">${fmtStamp(i.openedAt)}</span>
+    <span class="when">${i.closedAt ? `lasted ${fmtDur(i.closedAt - (i.startedAt || i.openedAt))}` : `open ${fmtDur(Date.now() - (i.startedAt || i.openedAt))}`}${incBadges(i)}</span>
+  </button>`;
+}
+function bindIncItems(box) {
   box.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => {
     if (checks.some(c => c.id === b.dataset.check)) { openPanel(b.dataset.check); showIncident(+b.dataset.inc); }
     else showIncidentOnly(+b.dataset.inc);
@@ -1177,6 +1418,8 @@ function closePanel() {
 
 // --- events
 document.getElementById("main").addEventListener("click", e => {
+  const plat = e.target.closest("[data-plat]");
+  if (plat) { openPlatform(plat.dataset.plat); return; }
   if (e.target.closest("[data-stop]")) return;
   const el = e.target.closest("[data-id]"); if (el) openPanel(el.dataset.id);
 });
@@ -1202,6 +1445,7 @@ function setView(v) {
   document.body.classList.toggle("pairing", gate);
   if (gate && openId) closePanel();
   if (!gate && document.querySelector("#pair-form, #login-form") || v !== "log" && document.getElementById("log-q")) document.getElementById("main").innerHTML = "";
+  if (v !== "platform" && location.hash.startsWith("#platform-")) history.replaceState(null, "", `#${v}`);
   if (!gate) try { localStorage.setItem("imc.view", v); } catch {}
   if (v === "board" && navigator.wakeLock && !wake) navigator.wakeLock.request("screen").then(w => { wake = w; w.addEventListener("release", () => wake = null); }).catch(() => {});
   render();
@@ -1336,6 +1580,7 @@ addEventListener("hashchange", () => {
   const h = location.hash.slice(1);
   if (h === "pair") { document.getElementById("allow").hidden = true; setView("pair"); }
   else if (["cards", "list", "board", "log"].includes(h) && !kiosk) setView(h);
+  else if (h.startsWith("platform-") && !kiosk) openPlatform(h.slice(9));
 });
 
 const THEMES = ["auto", "light", "dark"];
@@ -1414,7 +1659,7 @@ async function loadLive() {
     try {
       const d = await api("checks");
       applyData(d.checks.map(c => ({ ...c, parked: c.parked && { ...c.parked, until: c.parked.untilLabel } })));
-      if (panelInc && !document.getElementById("inc-note-text")?.value) showIncident(panelInc);
+      if (typeof panelInc === "number" && !document.getElementById("inc-note-text")?.value) showIncident(panelInc);
     } catch (e) {
       if (e.status === 401) location.reload(); else toast(e.message);
     } finally { loading = null; }
@@ -1509,6 +1754,7 @@ async function loadPublic() {
       id: c.id, name: c.name, group: c.group, mono: c.icon?.mono || (words[0]?.[0] || "?") + (words[1]?.[0] || ""), brand: c.icon?.color || "#3b4a44",
       src: "poll", via: "Vendor status feed", url: c.link, state: c.state, since: h.since, msg: c.summary,
       lastSeen: d.generated_at, monitoredFrom: h.first, incidents: h.spans, parked: null, snooze: null, peak: null,
+      platform: !!c.platform, componentDefs: c.components || [],
       log: (c.issues || []).map(i => ({ t: i.startedAt || d.generated_at, state: i.state, m: i.summary, o: "Vendor status feed" })),
     };
   });
@@ -1516,6 +1762,7 @@ async function loadPublic() {
   let n = 1;
   PUBLIC_INCIDENTS = d.checks.flatMap(c => (c.issues || []).map(i => ({
     id: n++, checkId: c.id, checkName: c.name, ref: i.ref || null, title: i.summary, detail: i.detail || null, url: i.url || c.link,
+    components: i.components || [], manual: false, ignored: (i.components || []).length > 0 && i.components.every(x => (c.components || []).some(d => d.name.toLowerCase() === x.toLowerCase() && d.relevance === "ignore")),
     state: i.state, worst: i.state, openedAt: i.startedAt || d.generated_at, startedAt: i.startedAt || null, closedAt: null, closeReason: null, tracked: null, archived: null,
     updates: (i.updates || []).map(u => ({ t: u.t, kind: "source", text: u.text, by: "Vendor status feed" })),
   })));
@@ -1532,6 +1779,7 @@ async function bootPublic() {
 
 try { const v = localStorage.getItem("imc.view"); if (["cards", "list", "log"].includes(v)) view = v; } catch {}
 const hashView = location.hash.slice(1); if (["cards", "list", "board", "log", "pair"].includes(hashView)) view = hashView;
+if (hashView.startsWith("platform-")) { platformId = hashView.slice(9); view = "platform"; }
 document.body.classList.add(`mode-${MODE}`);
 tick();
 if (MODE === "live") bootLive();
