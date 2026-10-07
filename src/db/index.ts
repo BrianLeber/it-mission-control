@@ -144,6 +144,32 @@ const MIGRATIONS: string[] = [
     detail TEXT
   );
   `,
+  `
+  -- Incidents as records: vendor reference, timeline, tracking and archiving.
+  ALTER TABLE issues ADD COLUMN ref TEXT;
+  ALTER TABLE issues ADD COLUMN detail TEXT;
+  ALTER TABLE issues ADD COLUMN started_at INTEGER;   -- when the vendor says it began (we may notice later)
+  ALTER TABLE issues ADD COLUMN tracked_by TEXT;
+  ALTER TABLE issues ADD COLUMN tracked_at INTEGER;
+  ALTER TABLE issues ADD COLUMN archived_by TEXT;
+  ALTER TABLE issues ADD COLUMN archived_at INTEGER;
+  CREATE INDEX issues_ref ON issues(ref);
+  CREATE INDEX issues_closed ON issues(closed_at);
+
+  -- kind: opened | source (vendor update) | state | action | note | closed | reopened
+  CREATE TABLE issue_updates (
+    id INTEGER PRIMARY KEY,
+    issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    t INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    state TEXT,
+    text TEXT NOT NULL,
+    by TEXT,
+    fp TEXT
+  );
+  CREATE INDEX issue_updates_issue ON issue_updates(issue_id, t);
+  CREATE UNIQUE INDEX issue_updates_fp ON issue_updates(issue_id, fp) WHERE fp IS NOT NULL;
+  `,
 ];
 
 export function openDb(path: string): DB {

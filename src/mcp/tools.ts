@@ -9,6 +9,7 @@ import { redact } from "../connectors/fetch.ts";
 import { secretRefs, type Vault } from "../secrets/vault.ts";
 import type { Engine } from "../engine/engine.ts";
 import type { Runner } from "../engine/runner.ts";
+import { getIncident, incidentMarkdown, listIncidents } from "../engine/incidents.ts";
 
 // MCP tools for building connectors with any LLM client.
 // The assistant can read docs, validate, dry-run and save DRAFTS, and ask for credential slots.
@@ -102,6 +103,21 @@ export function buildMcpServer(ctx: ToolContext): McpServer {
     engine.syncConnectors([c], "draft");
     audit(engine.db, `${p.kind}:${p.name}`, "connector.draft", c.id);
     return text({ saved: true, id: c.id, status: "draft (disabled)", next: "Ask an admin to review it under Connectors and enable it. Add any missing credentials under Settings → Credentials." });
+  });
+
+  server.registerTool("list_incidents", {
+    title: "List incidents",
+    description: "Incidents you are cleared to see. Filter by status (open, closed, tracked, archived, all), check id, or text such as a vendor reference (SP1489449).",
+    inputSchema: { status: z.enum(["open", "closed", "tracked", "archived", "all"]).optional(), check: z.string().optional(), q: z.string().optional() },
+  }, async ({ status, check, q }) => text(listIncidents(engine, p, { status, check, q, limit: 100 })));
+
+  server.registerTool("get_incident", {
+    title: "Get an incident",
+    description: "One incident's full record as Markdown: service, status, impact, and the timeline of vendor updates, state changes, actions and notes.",
+    inputSchema: { id: z.number().int() },
+  }, async ({ id }) => {
+    const i = getIncident(engine, p, id);
+    return i ? text(incidentMarkdown(i)) : fail(`No incident ${id}.`);
   });
 
   server.registerTool("list_credentials", {

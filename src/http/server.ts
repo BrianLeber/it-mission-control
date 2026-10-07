@@ -16,6 +16,7 @@ import { parseConnectorYaml } from "../connectors/registry.ts";
 import { UserError, type Engine, type EngineEvent } from "../engine/engine.ts";
 import type { Runner } from "../engine/runner.ts";
 import { visibleChecks } from "../engine/views.ts";
+import { getIncident, incidentMarkdown, listIncidents, type IncidentStatus } from "../engine/incidents.ts";
 import { buildMcpServer } from "../mcp/tools.ts";
 import { secretRefs, type Vault } from "../secrets/vault.ts";
 import { log } from "../util/log.ts";
@@ -86,6 +87,36 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
   op("unpark", (id, c) => engine.unpark(id, actor(c.principal)));
   op("false-alarm", (id, c) => engine.falseAlarm(id, actor(c.principal)));
   op("clear", (id, c) => engine.clear(id, actor(c.principal)));
+
+  // ---------- incidents: records you can track, annotate, archive and export ----------
+  const incident = (p: Principal, raw: string) => {
+    const i = getIncident(engine, p, Number(raw));
+    if (!i) throw new AccessError("Not found", 404);
+    return i;
+  };
+  route("GET", "/api/incidents", c => {
+    if (c.principal.kind === "anonymous" && !publicBoard()) throw new AccessError("Sign in required", 401);
+    const s = c.url.searchParams.get("status");
+    return { incidents: listIncidents(engine, c.principal, {
+      status: (["open", "closed", "tracked", "archived", "all"].includes(s ?? "") ? s : "all") as IncidentStatus,
+      check: c.url.searchParams.get("check") ?? undefined, q: c.url.searchParams.get("q") ?? undefined,
+      limit: Math.min(Number(c.url.searchParams.get("limit")) || 200, 1000),
+    }) };
+  }, "view");
+  route("GET", "/api/incidents/:id", c => {
+    if (c.principal.kind === "anonymous" && !publicBoard()) throw new AccessError("Sign in required", 401);
+    return incident(c.principal, c.params.id);
+  }, "view");
+  route("GET", "/api/incidents/:id/export", c => {
+    if (c.principal.kind === "anonymous" && !publicBoard()) throw new AccessError("Sign in required", 401);
+    const i = incident(c.principal, c.params.id);
+    c.res.writeHead(200, { "content-type": "text/markdown; charset=utf-8", "content-disposition": `attachment; filename="incident-${(i.ref ?? i.id).toString().replace(/[^\w-]/g, "")}.md"` });
+    c.res.end(incidentMarkdown(i));
+    return STREAMING;
+  }, "view");
+  route("POST", "/api/incidents/:id/track", c => { const i = incident(c.principal, c.params.id); engine.trackIssue(i.id, c.body?.on !== false, actor(c.principal)); return { ok: true }; }, "operate");
+  route("POST", "/api/incidents/:id/archive", c => { const i = incident(c.principal, c.params.id); engine.archiveIssue(i.id, c.body?.on !== false, actor(c.principal)); return { ok: true }; }, "operate");
+  route("POST", "/api/incidents/:id/notes", c => { const i = incident(c.principal, c.params.id); engine.addNote(i.id, String(c.body?.text ?? ""), actor(c.principal)); return { ok: true }; }, "operate");
 
   // ---------- push sources ----------
   const pushAuth = (purpose: "ping" | "webhook", id: string, token: string | undefined) => {

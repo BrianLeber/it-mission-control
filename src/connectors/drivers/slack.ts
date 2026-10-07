@@ -11,7 +11,8 @@ const Options = z.object({
 
 interface Current {
   status?: string;
-  active_incidents?: { id: number | string; title: string; type?: string; status?: string; url?: string; date_created?: string }[];
+  active_incidents?: { id: number | string; title: string; type?: string; status?: string; url?: string; date_created?: string;
+    notes?: { date_created?: string; body?: string }[] }[];
 }
 const TYPES: Record<string, IssueState | "ignore"> = { outage: "crit", incident: "warn", notice: "warn", maintenance: "maint" };
 
@@ -22,7 +23,10 @@ export function parseSlack(c: Current, o: z.output<typeof Options>): Observation
     if (i.status && ["resolved", "completed"].includes(i.status)) continue;
     const st = map[i.type ?? "incident"] ?? "warn";
     if (st === "ignore") continue;
-    issues.push({ key: `inc:${i.id}`, state: st, summary: i.title, url: i.url, startedAt: Date.parse(i.date_created ?? "") || undefined });
+    issues.push({
+      key: `inc:${i.id}`, state: st, summary: i.title, url: i.url, startedAt: Date.parse(i.date_created ?? "") || undefined,
+      updates: (i.notes ?? []).map(n => ({ t: Date.parse(n.date_created ?? ""), text: (n.body ?? "").trim() })).filter(u => u.t && u.text).sort((a, b) => a.t - b.t),
+    });
   }
   return { issues, okSummary: "All services operational" };
 }

@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { createHash } from "node:crypto";
 import { tx, type DB } from "../db/index.ts";
 import type { Connector } from "../connectors/schema.ts";
 import { STATE_RANK, worst, type Issue, type IssueState, type Observation, type Parked, type Snooze, type State } from "../model.ts";
@@ -13,6 +14,8 @@ import { parseDuration } from "../util/duration.ts";
 export interface IssueRow {
   id: number; check_id: string; key: string; state: IssueState; worst: IssueState; summary: string; url: string | null;
   opened_at: number; last_seen_at: number; missing_count: number; closed_at: number | null; close_reason: string | null;
+  ref?: string | null; detail?: string | null; started_at?: number | null; tracked_by?: string | null; tracked_at?: number | null;
+  archived_by?: string | null; archived_at?: number | null;
 }
 export interface StateRow {
   check_id: string; state: State; since: number; summary: string; last_ok_at: number | null; last_error: string | null;
@@ -25,6 +28,11 @@ export type EngineEvent =
   | { type: "updated"; checkId: string };
 
 const SIGNAL_KEY = "_signal"; // reserved key for NO SIGNAL / can't-reach-source issues
+/** A vendor incident that vanishes and comes back within this window reopens the same record. */
+const REOPEN_WINDOW = 6 * 3600e3;
+/** Closed incidents are kept this long unless archived. */
+export const RETENTION = 90 * 86400e3;
+const LABEL: Record<string, string> = { crit: "Down", warn: "Degraded", stale: "No signal", maint: "Maintenance", ack: "Snoozed", ok: "Operational" };
 
 export class Engine extends EventEmitter {
   db: DB;
@@ -167,6 +175,7 @@ export class Engine extends EventEmitter {
       const s: Snooze = { by, until: now + Math.min(Math.max(minutes, 1), 24 * 60) * 60e3, note, rank, keys: open.map(o => o.key) };
       this.db.prepare("UPDATE check_state SET snooze = ? WHERE check_id = ?").run(JSON.stringify(s), checkId);
       this.event(checkId, "ack", `Snoozed ${minutes}m by ${by}${note ? `: "${note}"` : ""}`, "Mission Control", now);
+      for (const o of open) this.update(o.id, now, "action", "ack", `Snoozed ${minutes}m${note ? `: "${note}"` : ""}`, by);
       this.recompute(checkId, now);
     });
   }
@@ -182,6 +191,7 @@ export class Engine extends EventEmitter {
       const p: Parked = { by, at: now, until, reason };
       this.db.prepare("UPDATE check_state SET parked = ?, snooze = NULL WHERE check_id = ?").run(JSON.stringify(p), checkId);
       this.event(checkId, this.state(checkId)!.state, `Parked by ${by}${until ? ` until ${new Date(until).toISOString().slice(0, 10)}` : ""}: ${reason}`, "Mission Control", now);
+      for (const o of this.openIssues(checkId)) this.update(o.id, now, "action", null, `Check parked: ${reason}`, by);
       this.recompute(checkId, now);
     });
   }
@@ -198,7 +208,7 @@ export class Engine extends EventEmitter {
       const open = this.openIssues(checkId).filter(o => o.key !== SIGNAL_KEY);
       if (!open.length) throw new UserError("Nothing to mark: this check has no open alerts.");
       const from = Math.min(...open.map(o => o.opened_at));
-      for (const o of open) this.closeIssue(o, "false_alarm", now);
+      for (const o of open) this.closeIssue(o, "false_alarm", now, undefined, undefined, by);
       const st = this.state(checkId)!;
       const sup = new Set<string>([...JSON.parse(st.suppressed), ...open.map(o => o.key)]);
       this.db.prepare("UPDATE check_state SET suppressed = ?, snooze = NULL WHERE check_id = ?").run(JSON.stringify([...sup]), checkId);
@@ -211,7 +221,7 @@ export class Engine extends EventEmitter {
   /** "I fixed it": closes open issues now. A polled source that still reports them reopens them. */
   clear(checkId: string, by: string, now = Date.now()) {
     tx(this.db, () => {
-      for (const o of this.openIssues(checkId)) this.closeIssue(o, "manual", now);
+      for (const o of this.openIssues(checkId)) this.closeIssue(o, "manual", now, undefined, undefined, by);
       this.db.prepare("UPDATE check_state SET snooze = NULL, next_due = 0, summary = 'Operational' WHERE check_id = ?").run(checkId);
       this.event(checkId, "ok", `Cleared manually by ${by}`, "Mission Control", now);
       this.recompute(checkId, now);
@@ -221,25 +231,101 @@ export class Engine extends EventEmitter {
   // ---------- internals ----------
 
   private upsertIssue(checkId: string, open: IssueRow[], i: Issue, origin: string, now: number) {
-    const cur = open.find(o => o.key === i.key);
+    let cur = open.find(o => o.key === i.key);
+    const label = (x: Issue) => (x.ref ? `${x.ref}: ${x.summary}` : x.summary);
+    if (!cur && i.key !== SIGNAL_KEY) {
+      // Same vendor incident back within the window: reopen its record instead of starting a new one.
+      const prev = this.db.prepare(`SELECT * FROM issues WHERE check_id = ? AND key = ? AND close_reason = 'cleared' AND closed_at > ? ORDER BY closed_at DESC LIMIT 1`)
+        .get(checkId, i.key, now - REOPEN_WINDOW) as IssueRow | undefined;
+      if (prev) {
+        this.db.prepare("UPDATE issues SET closed_at = NULL, close_reason = NULL, archived_at = CASE WHEN archived_by = 'auto (tracked)' THEN NULL ELSE archived_at END, archived_by = CASE WHEN archived_by = 'auto (tracked)' THEN NULL ELSE archived_by END WHERE id = ?").run(prev.id);
+        prev.closed_at = null; prev.close_reason = null;
+        open.push(prev); cur = prev;
+        this.update(prev.id, now, "reopened", i.state, "Reported again by the source", origin);
+        this.event(checkId, i.state, `Reopened: ${label(i)}`, origin, now);
+      }
+    }
     if (!cur) {
-      const r = this.db.prepare(`INSERT INTO issues (check_id, key, state, worst, summary, url, opened_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(checkId, i.key, i.state, i.state, i.summary, i.url ?? null, now, now);
-      open.push({ id: Number(r.lastInsertRowid), check_id: checkId, key: i.key, state: i.state, worst: i.state, summary: i.summary, url: i.url ?? null, opened_at: now, last_seen_at: now, missing_count: 0, closed_at: null, close_reason: null });
-      this.event(checkId, i.state, i.summary, origin, now);
+      const r = this.db.prepare(`INSERT INTO issues (check_id, key, state, worst, summary, url, opened_at, last_seen_at, ref, detail, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(checkId, i.key, i.state, i.state, i.summary, i.url ?? null, now, now, i.ref ?? null, i.detail ?? null, i.startedAt && i.startedAt < now ? i.startedAt : null);
+      const id = Number(r.lastInsertRowid);
+      open.push({ id, check_id: checkId, key: i.key, state: i.state, worst: i.state, summary: i.summary, url: i.url ?? null, opened_at: now, last_seen_at: now, missing_count: 0, closed_at: null, close_reason: null, ref: i.ref ?? null });
+      this.update(id, now, "opened", i.state, `${LABEL[i.state]}: ${i.summary}${i.detail ? ` (${i.detail})` : ""}`, origin);
+      this.sourceUpdates(id, i, origin);
+      this.event(checkId, i.state, label(i), origin, now);
       return;
     }
     const w = STATE_RANK[i.state] > STATE_RANK[cur.worst] ? i.state : cur.worst;
-    this.db.prepare("UPDATE issues SET state = ?, worst = ?, summary = ?, url = ?, last_seen_at = ?, missing_count = 0 WHERE id = ?")
-      .run(i.state, w, i.summary, i.url ?? cur.url, now, cur.id);
-    if (cur.state !== i.state || cur.summary !== i.summary) this.event(checkId, i.state, i.summary, origin, now);
+    this.db.prepare("UPDATE issues SET state = ?, worst = ?, summary = ?, url = ?, last_seen_at = ?, missing_count = 0, ref = COALESCE(?, ref), detail = COALESCE(?, detail) WHERE id = ?")
+      .run(i.state, w, i.summary, i.url ?? cur.url, now, i.ref ?? null, i.detail ?? null, cur.id);
+    if (cur.state !== i.state) this.update(cur.id, now, "state", i.state, `${LABEL[cur.state]} → ${LABEL[i.state]}`, origin);
+    if (cur.summary !== i.summary && !i.updates?.length) this.update(cur.id, now, "source", i.state, i.summary, origin);
+    this.sourceUpdates(cur.id, i, origin);
+    if (cur.state !== i.state || cur.summary !== i.summary) this.event(checkId, i.state, label(i), origin, now);
     Object.assign(cur, { state: i.state, worst: w, summary: i.summary, missing_count: 0 });
   }
 
-  private closeIssue(o: IssueRow, reason: "cleared" | "false_alarm" | "manual", now: number, message?: string, origin?: string) {
+  /** Records each vendor post once, however many polls see it. */
+  private sourceUpdates(issueId: number, i: Issue, origin: string) {
+    for (const u of i.updates ?? []) {
+      const fp = createHash("sha1").update(`${u.t}|${u.text}`).digest("hex").slice(0, 16);
+      this.db.prepare("INSERT OR IGNORE INTO issue_updates (issue_id, t, kind, state, text, by, fp) VALUES (?, ?, 'source', NULL, ?, ?, ?)")
+        .run(issueId, u.t, u.text.slice(0, 4000), origin, fp);
+    }
+  }
+
+  private update(issueId: number, t: number, kind: string, state: string | null, text: string, by?: string) {
+    this.db.prepare("INSERT INTO issue_updates (issue_id, t, kind, state, text, by) VALUES (?, ?, ?, ?, ?, ?)").run(issueId, t, kind, state, text, by ?? null);
+  }
+
+  private closeIssue(o: IssueRow, reason: "cleared" | "false_alarm" | "manual", now: number, message?: string, origin?: string, by?: string) {
     this.db.prepare("UPDATE issues SET closed_at = ?, close_reason = ? WHERE id = ?").run(now, reason, o.id);
     o.closed_at = now;
+    const text = reason === "false_alarm" ? "Closed as a false alarm" : reason === "manual" ? "Cleared manually" : o.key === SIGNAL_KEY ? "Signal restored" : "Cleared by the source";
+    this.update(o.id, now, "closed", reason === "false_alarm" ? "false" : "ok", text, by ?? origin ?? "Monitor");
+    // Tracked incidents are kept: archive them automatically when they close.
+    const t = this.db.prepare("SELECT tracked_at, archived_at FROM issues WHERE id = ?").get(o.id) as { tracked_at: number | null; archived_at: number | null };
+    if (t.tracked_at && !t.archived_at) {
+      this.db.prepare("UPDATE issues SET archived_at = ?, archived_by = 'auto (tracked)' WHERE id = ?").run(now, o.id);
+      this.update(o.id, now, "action", null, "Archived automatically because it was tracked", "Mission Control");
+    }
     if (message) this.event(o.check_id, "ok", message, origin ?? "Monitor", now);
+  }
+
+  // ---------- incident records ----------
+
+  issue(id: number): IssueRow | undefined {
+    return this.db.prepare("SELECT * FROM issues WHERE id = ?").get(id) as IssueRow | undefined;
+  }
+  trackIssue(id: number, on: boolean, by: string, now = Date.now()) {
+    const i = this.issue(id); if (!i) throw new UserError("No such incident");
+    if (on && i.closed_at) throw new UserError("This incident is already closed. Archive it to keep the record.");
+    tx(this.db, () => {
+      this.db.prepare("UPDATE issues SET tracked_by = ?, tracked_at = ? WHERE id = ?").run(on ? by : null, on ? now : null, id);
+      this.update(id, now, "action", null, on ? "Tracking started" : "Tracking stopped", by);
+    });
+    this.emit("event", { type: "updated", checkId: i.check_id } satisfies EngineEvent);
+  }
+  archiveIssue(id: number, on: boolean, by: string, now = Date.now()) {
+    const i = this.issue(id); if (!i) throw new UserError("No such incident");
+    if (on && !i.closed_at) throw new UserError("Archive works on closed incidents. Track this one and it will be archived when it closes.");
+    tx(this.db, () => {
+      this.db.prepare("UPDATE issues SET archived_by = ?, archived_at = ? WHERE id = ?").run(on ? by : null, on ? now : null, id);
+      this.update(id, now, "action", null, on ? "Archived: kept permanently" : "Removed from the archive", by);
+    });
+  }
+  addNote(id: number, text: string, by: string, now = Date.now()) {
+    const i = this.issue(id); if (!i) throw new UserError("No such incident");
+    const t = text.trim(); if (!t) throw new UserError("The note is empty");
+    this.update(id, now, "note", null, t.slice(0, 4000), by);
+  }
+  /** Drops closed, unarchived incidents and old log lines past retention. Archived records stay. */
+  purge(now = Date.now(), keep = RETENTION) {
+    const cutoff = now - keep;
+    const r = this.db.prepare("DELETE FROM issues WHERE closed_at IS NOT NULL AND closed_at < ? AND archived_at IS NULL").run(cutoff);
+    this.db.prepare("DELETE FROM events WHERE t < ?").run(cutoff);
+    this.db.prepare("DELETE FROM spans WHERE end IS NOT NULL AND end < ?").run(cutoff);
+    return Number(r.changes);
   }
 
   private event(checkId: string, state: State | "false", message: string, origin: string, now: number) {
@@ -268,7 +354,7 @@ export class Engine extends EventEmitter {
       } else state = "ack";
     }
     const top = [...open].sort((a, b) => STATE_RANK[b.state] - STATE_RANK[a.state] || b.opened_at - a.opened_at)[0];
-    const summary = top ? top.summary + (open.length > 1 ? ` (+${open.length - 1} more)` : "") : st.summary;
+    const summary = top ? (top.ref ? `${top.ref}: ` : "") + top.summary + (open.length > 1 ? ` (+${open.length - 1} more)` : "") : st.summary;
 
     this.db.prepare("UPDATE check_state SET snooze = ?, parked = ?, summary = ? WHERE check_id = ?")
       .run(snooze ? JSON.stringify(snooze) : null, parked ? JSON.stringify(parked) : null, raw === "ok" && !top ? st.summary : summary, checkId);

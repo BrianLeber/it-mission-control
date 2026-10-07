@@ -20,6 +20,12 @@ export interface Issue {
   summary: string;
   url?: string;
   startedAt?: number;
+  /** The vendor's own reference, e.g. Microsoft's SP1489449. Shown and searchable. */
+  ref?: string;
+  /** Longer description, e.g. Microsoft's impact statement. */
+  detail?: string;
+  /** The vendor's posted updates, oldest first. Recorded once each on the incident timeline. */
+  updates?: { t: number; text: string }[];
 }
 
 /** What a driver returns from one poll (or what a push source sends). */

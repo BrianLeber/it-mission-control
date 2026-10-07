@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Issue, IssueState, Observation } from "../../model.ts";
 import type { SafeFetch } from "../fetch.ts";
 import { defineDriver } from "./types.ts";
+import { plain } from "../../util/feed.ts";
 
 // Microsoft 365 service health for your tenant via Microsoft Graph.
 // Needs an app registration with the ServiceHealth.Read.All application permission.
@@ -16,6 +17,7 @@ const Options = z.object({
 interface GraphIssue {
   id: string; title: string; service?: string; status?: string; classification?: string;
   isResolved?: boolean; startDateTime?: string; impactDescription?: string;
+  posts?: { createdDateTime?: string; postType?: string; description?: { content?: string } }[];
 }
 const CLOSED = new Set(["serviceRestored", "postIncidentReviewPublished", "falsePositive", "resolved", "resolvedExternal", "mitigated", "mitigatedExternal"]);
 
@@ -29,9 +31,13 @@ export function parseGraphIssues(list: GraphIssue[], o: z.output<typeof Options>
     else if (o.include_advisories) state = "warn";
     else continue;
     issues.push({
-      key: `issue:${i.id}`, state, summary: `${i.id}: ${i.title}`,
+      key: `issue:${i.id}`, state, summary: i.title, ref: i.id,
+      detail: [i.service, i.impactDescription].filter(Boolean).join(": ") || undefined,
       url: `https://admin.microsoft.com/#/servicehealth/:/alerts/${encodeURIComponent(i.id)}`,
       startedAt: Date.parse(i.startDateTime ?? "") || undefined,
+      updates: (i.posts ?? [])
+        .map(p => ({ t: Date.parse(p.createdDateTime ?? ""), text: plain(p.description?.content ?? "").slice(0, 2000) }))
+        .filter(u => u.t && u.text).sort((a, b) => a.t - b.t),
     });
   }
   return { issues, okSummary: "No open service health incidents" };

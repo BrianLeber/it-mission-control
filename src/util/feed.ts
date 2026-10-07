@@ -30,3 +30,8 @@ export function parseFeed(xml: string): FeedItem[] {
     return { id, title, link, date: Number.isNaN(d) ? null : d, text: stripTags(tag(b, ["description", "summary", "content", "content:encoded"])) };
   });
 }
+
+/** Vendor posts arrive as HTML; keep readable text only. */
+export const plain = (html: string) => html.replace(/<br\s*\/?>|<\/p>|<\/li>/gi, "\n").replace(/<[^>]+>/g, " ")
+  .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  .replace(/[ \t]+/g, " ").split("\n").map(l => l.trim()).filter(Boolean).join("\n");

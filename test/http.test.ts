@@ -191,3 +191,25 @@ test("the UI is served with a strict CSP", async () => {
   assert.match(res.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
   assert.match(await res.text(), /^<!doctype html>/);
 });
+
+test("incidents API: find by vendor reference, track, note, export; hidden ones stay hidden", async () => {
+  const tech = await signIn("tech", "tech-password-123");
+  const found = (await call("/api/incidents?status=open&q=actions", { cookie: tech })).data.incidents;
+  assert.equal(found.length, 1);
+  const id = found[0].id;
+  assert.equal((await call(`/api/incidents/${id}/track`, { method: "POST", cookie: tech, body: { on: true } })).status, 200);
+  assert.equal((await call(`/api/incidents/${id}/notes`, { method: "POST", cookie: tech, body: { text: "Builds queued; told devs." } })).status, 200);
+  const detail = (await call(`/api/incidents/${id}`, { cookie: tech })).data;
+  assert.equal(detail.tracked.by, "tech");
+  assert.ok(detail.updates.some((u: any) => u.kind === "note" && u.by === "tech"));
+  const md = await call(`/api/incidents/${id}/export`, { cookie: tech });
+  assert.match(md.data, /^# Actions delayed/);
+  const gh = (await call("/api/checks", { cookie: tech })).data.checks.find((c: any) => c.id === "github");
+  assert.equal(gh.issues[0].tracked, true);
+
+  const fin = await signIn("fin", "fin-password-1234");
+  const payroll = (await call("/api/incidents?check=payroll", { cookie: fin })).data.incidents;
+  if (payroll.length) assert.equal((await call(`/api/incidents/${payroll[0].id}`, { cookie: tech })).status, 404);
+  const board = await call("/api/incidents/" + id + "/track", { method: "POST", body: { on: false } });
+  assert.notEqual(board.status, 200, "anonymous can't operate");
+});

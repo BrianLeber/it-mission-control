@@ -18,7 +18,8 @@ interface Ref { id: string; name: string }
 interface Summary {
   status?: { indicator?: string; description?: string };
   components?: { id: string; name: string; status: string; group?: boolean }[];
-  incidents?: { id: string; name: string; status: string; impact: string; shortlink?: string; created_at?: string; components?: Ref[] }[];
+  incidents?: { id: string; name: string; status: string; impact: string; shortlink?: string; created_at?: string; components?: Ref[];
+    incident_updates?: { status?: string; body?: string; created_at?: string }[] }[];
   scheduled_maintenances?: { id: string; name: string; status: string; shortlink?: string; scheduled_for?: string; components?: Ref[] }[];
 }
 
@@ -31,6 +32,7 @@ const PRETTY: Record<string, string> = {
   major_outage: "major outage", under_maintenance: "under maintenance",
 };
 const CLOSED = new Set(["resolved", "postmortem", "completed"]);
+const cap = (s?: string) => s ? s[0].toUpperCase() + s.slice(1) : "Update";
 
 export function parseStatuspage(s: Summary, o: z.output<typeof Options>): Observation {
   const want = (name: string) => o.components.length === 0 || o.components.some(c => c.toLowerCase() === name.toLowerCase());
@@ -45,7 +47,11 @@ export function parseStatuspage(s: Summary, o: z.output<typeof Options>): Observ
     const st = map[i.impact] ?? "warn";
     i.components?.forEach(c => covered.add(c.id));
     if (st === "ignore") continue;
-    issues.push({ key: `inc:${i.id}`, state: st, summary: i.name, url: i.shortlink, startedAt: Date.parse(i.created_at ?? "") || undefined });
+    issues.push({
+      key: `inc:${i.id}`, state: st, summary: i.name, url: i.shortlink, startedAt: Date.parse(i.created_at ?? "") || undefined,
+      updates: (i.incident_updates ?? []).map(u => ({ t: Date.parse(u.created_at ?? ""), text: `${cap(u.status)}: ${u.body ?? ""}`.trim() }))
+        .filter(u => u.t && u.text).sort((a, b) => a.t - b.t),
+    });
   }
   if (o.include_maintenance) {
     for (const m of s.scheduled_maintenances ?? []) {

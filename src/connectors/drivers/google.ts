@@ -17,6 +17,7 @@ interface Incident {
   id: string; number?: string; begin?: string; end?: string | null; external_desc?: string;
   service_name?: string; status_impact?: string; uri?: string;
   most_recent_update?: { status?: string; text?: string };
+  updates?: { created?: string; when?: string; text?: string }[];
   affected_products?: { title: string; id?: string }[];
 }
 const IMPACT: Record<string, IssueState | "ignore"> = {
@@ -38,6 +39,8 @@ export function parseGoogle(list: Incident[], o: z.output<typeof Options>): Obse
       summary: `${what}: ${(i.external_desc ?? "Incident").split("\n")[0].trim()}`,
       url: i.uri ? new URL(i.uri, o.base).toString() : o.base,
       startedAt: Date.parse(i.begin ?? "") || undefined,
+      updates: (i.updates ?? []).map(u => ({ t: Date.parse(u.when ?? u.created ?? ""), text: (u.text ?? "").trim().slice(0, 2000) }))
+        .filter(u => u.t && u.text).sort((a, b) => a.t - b.t),
     });
   }
   return { issues, okSummary: "No active incidents" };

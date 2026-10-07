@@ -21,6 +21,8 @@ export interface CheckView {
   parked: (Parked & { untilLabel: string }) | null;
   snooze: Pick<Snooze, "by" | "until" | "note"> | null;
   peak: { state: State; at: number; dur: number } | null;
+  /** Open incidents, so the card and panel can show references and tracking without another call. */
+  issues: { id: number; ref: string | null; summary: string; state: string; openedAt: number; tracked: boolean }[];
   sensitivity?: string;
 }
 
@@ -65,6 +67,7 @@ export function visibleChecks(engine: Engine, p: Principal, opts: { includeSensi
       parked: parked && { ...parked, untilLabel: parked.until ? new Date(parked.until).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "unparked" },
       snooze: snooze && { by: snooze.by, until: snooze.until, note: snooze.note },
       peak: st.state === "ok" ? peakOf(spans, now) : null,
+      issues: engine.openIssues(c.id).map(i => ({ id: i.id, ref: i.ref ?? null, summary: i.summary, state: i.state, openedAt: i.opened_at, tracked: !!i.tracked_at })),
       ...(opts.includeSensitivity ? { sensitivity: c.sensitivity } : {}),
     });
   }

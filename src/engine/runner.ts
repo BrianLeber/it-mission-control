@@ -73,8 +73,10 @@ export class Runner {
     }
   }
 
+  private lastPurge = 0;
   async tick(now = Date.now()) {
     this.engine.sweep(now);
+    if (now - this.lastPurge > 6 * 3600e3) { this.lastPurge = now; this.engine.purge(now); }
     const due = this.engine.checks().filter(r => {
       if (!r.enabled || !DRIVERS[r.connector.driver]?.poll || this.running.has(r.id)) return false;
       return (this.engine.state(r.id)?.next_due ?? 0) <= now;
