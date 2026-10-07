@@ -4,10 +4,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
-/* Layout: a dark instrument panel on a faint Task-Manager grid. Healthy channels sit dim;
-   anything off-nominal lights its border like a clip LED. One committed dark look (TV-first). */
+/* Layout: an instrument panel on a faint Task-Manager grid. Healthy channels sit dim;
+   anything off-nominal lights its border like a clip LED. Dark-first (TV); the light theme
+   adds a solid status banner behind each name, because thin colored borders wash out on white. */
 :root {
   color-scheme: dark;
+  --band: 0%;        /* strength of the status banner behind names (0 in dark) */
+  --band-ok: 0%;     /* the same for healthy checks, kept faint */
+  --ink: 0%;         /* how much status colors darken when used as text */
+  --flash-edge: #fff;
   --bg: #070a09;
   --panel: #0c110f;
   --panel-2: #111815;
@@ -29,6 +34,22 @@
   --f-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   --r: 6px;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #edf1ee; --panel: #ffffff; --panel-2: #f3f6f3; --grid: #e0e7e2; --line: #cdd7d0;
+    --fg: #121a16; --dim: #55645c; --faint: #98a69e;
+    --ok: #13985a; --warn: #e0a800; --crit: #d8261e; --ack: #e66a00; --maint: #2f6fe0; --stale: #77847d;
+    --band: 100%; --band-ok: 13%; --ink: 30%; --flash-edge: #000;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #edf1ee; --panel: #ffffff; --panel-2: #f3f6f3; --grid: #e0e7e2; --line: #cdd7d0;
+  --fg: #121a16; --dim: #55645c; --faint: #98a69e;
+  --ok: #13985a; --warn: #e0a800; --crit: #d8261e; --ack: #e66a00; --maint: #2f6fe0; --stale: #77847d;
+  --band: 100%; --band-ok: 13%; --ink: 30%; --flash-edge: #000;
 }
 html, body { height: 100%; }
 [hidden] { display: none !important; }
@@ -55,6 +76,9 @@ button, a { color: inherit; font: inherit; }
 [data-state="ack"]   { --s: var(--ack); }
 [data-state="maint"] { --s: var(--maint); }
 [data-state="stale"] { --s: var(--stale); }
+[data-state] { --on: #fff; --s-ink: color-mix(in srgb, var(--s), #000 var(--ink)); }
+[data-state="warn"] { --on: #1d1600; }
+[data-state="ok"] { --on: var(--fg); }
 
 /* ---------- top bar ---------- */
 .top {
@@ -76,7 +100,7 @@ button, a { color: inherit; font: inherit; }
 .led[data-state="ok"] { opacity: .35; }
 .led[data-state="crit"] { box-shadow: 0 0 8px var(--crit); }
 .counts { display: flex; gap: 10px; font-family: var(--f-data); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.counts span { color: var(--s); }
+.counts span { color: var(--s-ink); }
 .counts span[data-zero] { color: var(--faint); }
 
 .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -101,7 +125,8 @@ button, a { color: inherit; font: inherit; }
   background: var(--panel);
   border: 2px solid color-mix(in srgb, var(--s) 85%, transparent);
   border-radius: var(--r);
-  padding: 12px 14px 10px;
+  --py: 12px; --px: 14px;
+  padding: var(--py) var(--px) 10px;
   display: grid; gap: 8px;
   cursor: pointer;
   min-width: 0;
@@ -117,21 +142,29 @@ button, a { color: inherit; font: inherit; }
 @keyframes breathe { from { box-shadow: 0 0 14px -6px var(--crit), inset 0 0 18px -14px var(--crit); } to { box-shadow: 0 0 30px -4px var(--crit), inset 0 0 30px -12px var(--crit); } }
 .flash::after {
   content: ""; position: absolute; inset: -2px; border-radius: var(--r); pointer-events: none;
-  border: 2px solid #fff; background: color-mix(in srgb, var(--s) 30%, transparent);
+  border: 2px solid var(--flash-edge); background: color-mix(in srgb, var(--s) 30%, transparent);
   animation: flash 1.4s steps(1, end) 1 forwards;
 }
 @keyframes flash { 0%{opacity:1} 14%{opacity:0} 28%{opacity:1} 42%{opacity:0} 56%{opacity:.8} 70%,100%{opacity:0} }
 
 .c-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; min-width: 0; }
+.card > .c-head, .tile > .t-head {
+  margin: calc(-1 * var(--py)) calc(-1 * var(--px)) 0; padding: 9px var(--px);
+  border-radius: calc(var(--r) - 2px) calc(var(--r) - 2px) 0 0;
+  background: color-mix(in srgb, var(--s) var(--band), transparent);
+  color: color-mix(in srgb, var(--on) var(--band), var(--fg));
+}
+.card[data-state="ok"] > .c-head, .tile[data-state="ok"] > .t-head { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
+.card.parked > .c-head, .tile.parked > .t-head { background: transparent; color: var(--fg); }
 .mono { width: 34px; height: 34px; border-radius: 7px; display: grid; place-items: center; background: var(--brand); color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .02em; flex: none; }
 .c-title { min-width: 0; }
 .c-title h3 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 17px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.c-sub { font-family: var(--f-data); font-size: 11px; color: var(--dim); letter-spacing: .02em; }
+.c-sub { font-family: var(--f-data); font-size: 11px; color: color-mix(in srgb, currentColor 66%, transparent); letter-spacing: .02em; }
 
 .peak { font-family: var(--f-data); font-size: 11px; font-weight: 600; color: var(--pk); border: 1px solid var(--pk); border-radius: 3px; padding: 1px 5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .peak-notch { position: absolute; top: -2px; right: -2px; width: 0; height: 0; border-top: 14px solid var(--pk); border-left: 14px solid transparent; border-top-right-radius: var(--r); }
 
-.c-state { display: flex; align-items: baseline; gap: 8px; font-family: var(--f-display); font-weight: 700; letter-spacing: .1em; font-size: 14px; color: var(--s); }
+.c-state { display: flex; align-items: baseline; gap: 8px; font-family: var(--f-display); font-weight: 700; letter-spacing: .1em; font-size: 14px; color: var(--s-ink); }
 .card[data-state="ok"] .c-state { color: color-mix(in srgb, var(--ok) 75%, var(--fg)); }
 .glyph { font-size: 12px; }
 .dur { margin-left: auto; font-family: var(--f-data); font-weight: 500; letter-spacing: 0; color: var(--fg); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -161,13 +194,16 @@ button, a { color: inherit; font: inherit; }
   padding: 8px 12px; cursor: pointer; min-width: 0; position: relative;
 }
 .row:hover { background: var(--panel-2); }
-.row .namepill { display: flex; align-items: center; gap: 10px; min-width: 0; border: 2px solid var(--s); border-radius: 999px; padding: 3px 12px 3px 3px; justify-self: start; max-width: 100%; }
+.row .namepill { display: flex; align-items: center; gap: 10px; min-width: 0; border: 2px solid var(--s); border-radius: 999px; padding: 3px 12px 3px 3px; justify-self: start; max-width: 100%;
+  background: color-mix(in srgb, var(--s) var(--band), transparent); color: color-mix(in srgb, var(--on) var(--band), var(--fg)); }
+.row[data-state="ok"] .namepill { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
+.row.parked .namepill { background: transparent; color: var(--fg); }
 .row[data-state="ok"] .namepill { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
 .row[data-state="crit"] .namepill { box-shadow: 0 0 14px -3px var(--crit); }
 .row[data-state="stale"] .namepill { border-style: dashed; }
 .row .namepill .mono { width: 26px; height: 26px; border-radius: 50%; font-size: 11px; }
 .row .namepill b { font-family: var(--f-display); font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.row .st { display: flex; flex-direction: column; font-family: var(--f-display); font-weight: 700; letter-spacing: .08em; font-size: 13px; color: var(--s); }
+.row .st { display: flex; flex-direction: column; font-family: var(--f-display); font-weight: 700; letter-spacing: .08em; font-size: 13px; color: var(--s-ink); }
 .row[data-state="ok"] .st { color: color-mix(in srgb, var(--ok) 75%, var(--fg)); }
 .row .st .dur { margin: 0; font-size: 12px; color: var(--dim); }
 .row .msg { color: var(--fg); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -187,7 +223,7 @@ button, a { color: inherit; font: inherit; }
 body.board .wrap { max-width: none; padding-block-end: 12px; }
 body.board .controls .demo-only { display: none; }
 .board-attn { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
-.board-attn .card { padding: 18px 20px 14px; gap: 12px; }
+.board-attn .card { --py: 16px; --px: 20px; padding-bottom: 14px; gap: 12px; }
 .board-attn .card .c-title h3 { font-size: 26px; }
 .board-attn .card .mono { width: 48px; height: 48px; font-size: 17px; }
 .board-attn .card .c-state { font-size: 20px; }
@@ -195,18 +231,18 @@ body.board .controls .demo-only { display: none; }
 .board-attn .card .c-msg { font-size: 18px; }
 .board-attn .card .cells { height: 22px; }
 .board-calm { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
-.tile { position: relative; background: var(--panel); border: 2px solid color-mix(in srgb, var(--s) 35%, transparent); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 8px; cursor: pointer; min-width: 0; }
+.tile { --py: 10px; --px: 12px; position: relative; background: var(--panel); border: 2px solid color-mix(in srgb, var(--s) 35%, transparent); border-radius: var(--r); padding: var(--py) var(--px); display: grid; gap: 8px; cursor: pointer; min-width: 0; }
 .tile[data-state="maint"] { border-color: var(--maint); }
-.tile .t-head { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.tile .t-head { display: flex; gap: 8px; align-items: center; min-width: 0; padding-block: 7px; }
 .tile .mono { width: 26px; height: 26px; font-size: 11px; border-radius: 6px; }
 .tile b { font-family: var(--f-display); font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-.tile .glyph { color: var(--s); }
+.tile .glyph { color: var(--s-ink); }
 .tile .cells { height: 8px; }
 .tile .zlabel { display: none !important; }
 .all-clear { font-family: var(--f-display); font-weight: 700; font-size: 28px; letter-spacing: .1em; color: var(--ok); padding: 26px; border: 2px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: var(--r); text-align: center; }
 .ticker { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-wrap: wrap; gap: 6px 24px; font-family: var(--f-data); font-size: 13px; color: var(--dim); }
 .ticker .tk { white-space: nowrap; }
-.ticker .tk i { font-style: normal; color: var(--s); }
+.ticker .tk i { font-style: normal; color: var(--s-ink); }
 
 /* ---------- side panel ---------- */
 .scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .5); z-index: 30; }
@@ -231,13 +267,13 @@ body.board .controls .demo-only { display: none; }
 .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; font-family: var(--f-data); font-size: 12px; }
 .log li { display: grid; grid-template-columns: 92px 14px 1fr; gap: 8px; padding: 6px 8px; background: var(--bg); }
 .log time { color: var(--dim); font-variant-numeric: tabular-nums; }
-.log .glyph { color: var(--s); }
+.log .glyph { color: var(--s-ink); }
 .log .m { min-width: 0; overflow-wrap: anywhere; }
 .log .o { display: block; color: var(--faint); font-size: 11px; }
 
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--f-data); font-size: 12px; color: var(--dim); margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--line); }
 .legend span { display: inline-flex; gap: 6px; align-items: center; }
-.legend i { font-style: normal; color: var(--s); }
+.legend i { font-style: normal; color: var(--s-ink); }
 .demo-note { font-family: var(--f-data); font-size: 11px; color: var(--faint); }
 
 [data-state="false"] { --s: var(--stale); }
@@ -248,7 +284,7 @@ body.board .controls .demo-only { display: none; }
 .card.parked .c-state { color: var(--dim); }
 .card.parked .c-msg { color: var(--dim); }
 .parked-tag { font-family: var(--f-data); font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--dim); border: 1px solid var(--faint); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
-.under { color: var(--s); white-space: nowrap; }
+.under { color: var(--s-ink); white-space: nowrap; }
 .row.parked .namepill { border-color: var(--faint); border-style: dashed; box-shadow: none; }
 .row.parked .st { color: var(--dim); }
 .led[data-parked] { background: var(--faint); opacity: .5; box-shadow: none; }
@@ -275,6 +311,18 @@ body.board .controls .demo-only { display: none; }
 body.pairing .meter, body.pairing .controls, body.pairing .legend, body.pairing .demo-note,
 body.kiosk .controls, body.kiosk .demo-note, body.board .legend, body.board .demo-note { display: none; }
 .kiosk-tag { font-family: var(--f-data); font-size: 12px; color: var(--dim); border: 1px solid var(--line); border-radius: 3px; padding: 2px 6px; white-space: nowrap; }
+
+#b-allow[data-tone="warn"] { border-color: var(--warn); color: var(--fg); box-shadow: inset 0 0 0 1px var(--warn); }
+#b-allow[data-tone="crit"] { border-color: var(--crit); color: var(--fg); box-shadow: inset 0 0 0 1px var(--crit); }
+#b-allow .dot { display: none; }
+#b-allow[data-tone] .dot { display: inline-block; background: var(--s); }
+.pop-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.paired li { align-items: flex-start; padding-block: 6px; border-top: 1px solid var(--line); }
+.paired li:first-child { border-top: 0; }
+.paired .when { display: block; color: var(--dim); }
+.paired li[data-tone] .when { color: var(--s-ink); }
+.paired .acts { display: flex; gap: 10px; flex: none; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 40; background: var(--panel); color: var(--fg); border: 1px solid var(--ok); border-radius: var(--r); padding: 10px 16px; font-size: 14px; box-shadow: 0 10px 30px rgb(0 0 0 / .35); max-width: calc(100vw - 32px); }
 
 /* panel: snooze and park */
 .snooze { display: inline-flex; border: 1px solid var(--ack); border-radius: var(--r); overflow: hidden; }
@@ -310,7 +358,8 @@ body.kiosk .controls, body.kiosk .demo-note, body.board .legend, body.board .dem
       <button class="toggle" id="t-focus" aria-pressed="true" title="Bring issues to the top"><span class="dot"></span>Auto-focus</button>
       <button class="toggle demo-only" id="t-demo" aria-pressed="true" title="Play scripted status changes"><span class="dot"></span>Demo feed</button>
       <button class="toggle demo-only" id="b-step" aria-pressed="false" title="Apply the next scripted change now">Next event ›</button>
-      <button class="toggle" id="b-allow" aria-expanded="false" aria-controls="allow" title="Give a TV or shared screen read-only access">Allow a board</button>
+      <button class="toggle" id="t-theme" title="Switch between automatic, light and dark">Theme · Auto</button>
+      <button class="toggle" id="b-allow" aria-expanded="false" aria-controls="allow" title="Give a TV or shared screen read-only access"><span class="dot"></span>Allow a board</button>
       <div class="popover" id="allow" hidden></div>
     </div>
   </header>
@@ -322,6 +371,7 @@ body.kiosk .controls, body.kiosk .demo-note, body.board .legend, body.board .dem
 </div>
 
 <div class="scrim" id="scrim" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
 <aside class="panel" id="panel" hidden aria-label="Check details"></aside>
 
 <script>
@@ -754,6 +804,7 @@ document.getElementById("main").addEventListener("keydown", e => {
 document.getElementById("scrim").onclick = closePanel;
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && openId) closePanel();
+  else if (e.key === "Escape") closeAllow();
   if (e.target.closest("input,textarea")) return;
   if (kiosk || view === "pair") return;
   if (e.key === "1") setView("cards"); if (e.key === "2") setView("list"); if (e.key === "3") setView("board");
@@ -762,6 +813,7 @@ document.addEventListener("keydown", e => {
 let wake = null;
 function setView(v) {
   view = v;
+  closeAllow();
   document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === v)));
   document.body.classList.toggle("board", v === "board");
   document.body.classList.toggle("pairing", v === "pair");
@@ -778,7 +830,31 @@ document.getElementById("b-step").onclick = nextEvent;
 
 // --- "Allow a board": an admin mints a short-lived code; the TV trades it for a read-only session
 let kiosk = false;
-const paired = [{ name: "Lobby TV", at: Date.now() - 5 * DAY }, { name: "IT office", at: Date.now() - DAY }];
+const BOARD_TTL = 30 * DAY, EXPIRY_WARN = 7 * DAY;
+const paired = [
+  { name: "Lobby TV", at: Date.now() - 25 * DAY, expires: Date.now() + 5 * DAY },
+  { name: "IT office", at: Date.now() - 33 * DAY, expires: Date.now() - 3 * DAY },
+  { name: "NOC wall", at: Date.now() - 2 * DAY, expires: Date.now() + 28 * DAY },
+];
+const boardTone = b => b.expires <= Date.now() ? "crit" : b.expires - Date.now() <= EXPIRY_WARN ? "warn" : null;
+const fmtDate = t => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
+function updateAllowButton() {
+  const tones = paired.map(boardTone);
+  const tone = tones.includes("crit") ? "crit" : tones.includes("warn") ? "warn" : null;
+  const b = document.getElementById("b-allow");
+  if (tone) { b.dataset.tone = tone; b.dataset.state = tone; } else { delete b.dataset.tone; delete b.dataset.state; }
+  const n = tones.filter(Boolean).length;
+  b.title = tone ? `${n} board${n > 1 ? "s" : ""} expired or expiring within 7 days` : "Give a TV or shared screen read-only access";
+}
+function closeAllow() {
+  const a = document.getElementById("allow"); if (a.hidden) return;
+  a.hidden = true; document.getElementById("b-allow").setAttribute("aria-expanded", "false");
+}
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 5000);
+}
 let pairCode, pairExpires, pairName = "Conference room TV";
 function newCode() {
   const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; let c = "";
@@ -790,17 +866,28 @@ const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math
 function renderAllow() {
   const a = document.getElementById("allow");
   a.innerHTML = `
-    <h2 class="p-sub" style="margin:0">Allow a status board</h2>
+    <div class="pop-head"><h2 class="p-sub" style="margin:0">Allow a status board</h2><button class="p-close" id="allow-close" aria-label="Close">×</button></div>
     <label class="field"><span>Board name</span><input id="allow-name" value="${esc(pairName)}"></label>
     <div class="code" id="allow-code">${pairCode}</div>
-    <p class="small">On the TV, open the board page and enter this code. It expires in <b id="allow-exp">${mmss(pairExpires - Date.now())}</b>. The board can view status but can't snooze, park or clear anything.</p>
+    <p class="small">On the TV, open the board page and enter this code. It works once and expires in <b id="allow-exp">${mmss(pairExpires - Date.now())}</b>. The board stays connected for 30 days and can view status but can't snooze, park or clear anything.</p>
     <div class="actions"><button class="btn" id="allow-new">New code</button><a class="btn primary" href="#pair">Open pairing page</a></div>
     <h3 class="p-sub" style="margin:4px 0 0">Paired boards</h3>
-    <ul class="paired">${paired.map((b, i) => `<li><span>${esc(b.name)} · paired ${fmtStamp(b.at)}</span><button class="linkbtn" data-revoke="${i}">Revoke</button></li>`).join("") || `<li>None yet</li>`}</ul>`;
+    <ul class="paired">${paired.map((b, i) => {
+      const tone = boardTone(b);
+      const when = tone === "crit" ? `Expired ${fmtDate(b.expires)}` : tone === "warn" ? `Expires in ${fmtDur(b.expires - Date.now()).split(" ")[0]} · ${fmtDate(b.expires)}` : `Paired ${fmtDate(b.at)} · expires ${fmtDate(b.expires)}`;
+      return `<li${tone ? ` data-tone="${tone}" data-state="${tone}"` : ""}><span><b>${esc(b.name)}</b><span class="when">${when}</span></span><span class="acts">${tone ? `<button class="linkbtn" data-reauth="${i}">Reauthorize</button>` : ""}<button class="linkbtn" data-revoke="${i}">Revoke</button></span></li>`;
+    }).join("") || `<li>None yet</li>`}</ul>`;
   document.getElementById("allow-name").oninput = e => pairName = e.target.value || "Status board";
   document.getElementById("allow-new").onclick = () => { newCode(); renderAllow(); };
-  a.querySelectorAll("[data-revoke]").forEach(b => b.onclick = () => { paired.splice(+b.dataset.revoke, 1); renderAllow(); });
+  document.getElementById("allow-close").onclick = () => { closeAllow(); document.getElementById("b-allow").focus(); };
+  a.querySelectorAll("[data-revoke]").forEach(b => b.onclick = () => { const x = paired.splice(+b.dataset.revoke, 1)[0]; renderAllow(); updateAllowButton(); toast(`${x.name} revoked. It shows the pairing screen now.`); });
+  a.querySelectorAll("[data-reauth]").forEach(b => b.onclick = () => { const x = paired[+b.dataset.reauth]; x.expires = Date.now() + BOARD_TTL; renderAllow(); updateAllowButton(); toast(`${x.name} reauthorized until ${fmtDate(x.expires)}. No re-pairing needed.`); });
 }
+document.addEventListener("click", e => {
+  const a = document.getElementById("allow");
+  // a button inside the box may have re-rendered it, leaving the target detached
+  if (!a.hidden && e.target.isConnected && !e.target.closest("#allow, #b-allow")) closeAllow();
+});
 document.getElementById("b-allow").onclick = e => {
   const a = document.getElementById("allow"); a.hidden = !a.hidden;
   e.currentTarget.setAttribute("aria-expanded", String(!a.hidden));
@@ -822,7 +909,9 @@ function renderPair() {
     const norm = x => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (Date.now() > pairExpires) { document.getElementById("pair-err").textContent = "That code has expired. Ask for a new one."; return; }
     if (norm(inp.value) !== norm(pairCode)) { document.getElementById("pair-err").textContent = "That code doesn't match. Check it and try again."; return; }
-    paired.push({ name: pairName, at: Date.now() }); newCode();
+    paired.push({ name: pairName, at: Date.now(), expires: Date.now() + BOARD_TTL });
+    newCode(); closeAllow(); updateAllowButton(); // the code is spent; the sharer's box closes
+    toast(`${pairName} paired. That code no longer works.`);
     kiosk = true; document.body.classList.add("kiosk");
     const tag = document.getElementById("kiosk-tag");
     tag.innerHTML = `Read-only · ${esc(pairName)} <button class="linkbtn" id="k-exit">exit (demo)</button>`; tag.hidden = false;
@@ -836,6 +925,18 @@ addEventListener("hashchange", () => {
   if (h === "pair") { document.getElementById("allow").hidden = true; setView("pair"); }
   else if (["cards", "list", "board"].includes(h) && !kiosk) setView(h);
 });
+
+const THEMES = ["auto", "light", "dark"];
+let theme = "auto";
+function setTheme(t) {
+  theme = t;
+  if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.dataset.theme = t;
+  document.getElementById("t-theme").textContent = `Theme · ${t[0].toUpperCase()}${t.slice(1)}`;
+  try { localStorage.setItem("imc.theme", t); } catch {}
+}
+document.getElementById("t-theme").onclick = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % 3]);
+try { const t = localStorage.getItem("imc.theme"); if (THEMES.includes(t)) setTheme(t); } catch {}
+updateAllowButton();
 
 function nextEvent() {
   if (step >= SCRIPT.length) { checks = seedChecks(); step = 0; changes.length = 0; render(); return; }
