@@ -40,6 +40,7 @@ npm run cli -- poll connectors/templates/front-queue.yaml    # see what it would
 
 | | |
 |---|---|
+| **Incidents** | Each alert is a record with the vendor's reference (e.g. SP1489449), timeline and notes. Track an open one, and it's archived automatically when it closes; archive closed ones to keep them past 90 days. The **Log** view (key `4`) searches them all. |
 | **TV boards** | An admin chooses *Allow a board* and creates a one-time code; the TV opens `/pair`. Boards are read-only, last 30 days, and can be reauthorized without re-pairing. |
 | **AI-assisted connectors** | `POST /mcp` with an API token (`npm run cli -- token:add admin`). The assistant drafts and tests connectors; a person adds credentials and enables them. |
 | **Public demo** | `npm run cli -- snapshot` writes `site/index.html` and `site/status.json`: a static, read-only status page. The *Public demo* workflow publishes it to GitHub Pages. |

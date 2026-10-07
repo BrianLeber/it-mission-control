@@ -213,3 +213,14 @@ test("incidents API: find by vendor reference, track, note, export; hidden ones 
   const board = await call("/api/incidents/" + id + "/track", { method: "POST", body: { on: false } });
   assert.notEqual(board.status, 200, "anonymous can't operate");
 });
+
+test("check now re-polls immediately; push-based checks say why they can't", async () => {
+  const tech = await signIn("tech", "tech-password-123");
+  const before = seen.length;
+  const r = await call("/api/checks/github/poll", { method: "POST", cookie: tech });
+  assert.equal(r.status, 200);
+  assert.ok(seen.length > before, "the source was asked again");
+  const push = await call("/api/checks/fs01/poll", { method: "POST", cookie: tech });
+  assert.equal(push.status, 400);
+  assert.match(push.data.error, /push-based/);
+});

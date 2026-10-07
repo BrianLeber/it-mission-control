@@ -12,6 +12,9 @@ const Options = z.object({
   client_secret: z.string().min(1).describe("Use ${secret:m365_client_secret}"),
   services: z.array(z.string()).default([]).describe('Only these, e.g. "Exchange Online", "Microsoft Teams"'),
   include_advisories: z.boolean().default(false),
+  /** Sovereign clouds: GCC High uses https://login.microsoftonline.us and https://graph.microsoft.us */
+  authority: z.url().default("https://login.microsoftonline.com"),
+  graph_base: z.url().default("https://graph.microsoft.com"),
 });
 
 interface GraphIssue {
@@ -48,10 +51,10 @@ async function token(o: z.output<typeof Options>, fetch: SafeFetch): Promise<str
   const k = `${o.tenant_id}:${o.client_id}`;
   const hit = tokens.get(k);
   if (hit && hit.until > Date.now() + 60_000) return hit.token;
-  const r = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(o.tenant_id)}/oauth2/v2.0/token`, {
+  const r = await fetch(`${o.authority.replace(/\/$/, "")}/${encodeURIComponent(o.tenant_id)}/oauth2/v2.0/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: o.client_id, client_secret: o.client_secret, scope: "https://graph.microsoft.com/.default", grant_type: "client_credentials" }).toString(),
+    body: new URLSearchParams({ client_id: o.client_id, client_secret: o.client_secret, scope: `${o.graph_base.replace(/\/$/, "")}/.default`, grant_type: "client_credentials" }).toString(),
   });
   if (!r.ok) throw new Error(`Microsoft sign-in failed (HTTP ${r.status}). Check tenant, client ID and secret.`);
   const j = r.json<{ access_token: string; expires_in: number }>();
@@ -79,7 +82,7 @@ options:
 `,
   async poll(o, ctx) {
     const t = await token(o, ctx.fetch);
-    const url = "https://graph.microsoft.com/v1.0/admin/serviceAnnouncement/issues?$filter=isResolved%20eq%20false&$top=100";
+    const url = `${o.graph_base.replace(/\/$/, "")}/v1.0/admin/serviceAnnouncement/issues?$filter=isResolved%20eq%20false&$top=100`;
     const r = await ctx.fetch(url, { headers: { authorization: `Bearer ${t}` } });
     if (!r.ok) throw new Error(`Graph returned HTTP ${r.status}. The app needs ServiceHealth.Read.All.`);
     return parseGraphIssues(r.json<{ value: GraphIssue[] }>().value ?? [], o);

@@ -87,6 +87,13 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
   op("unpark", (id, c) => engine.unpark(id, actor(c.principal)));
   op("false-alarm", (id, c) => engine.falseAlarm(id, actor(c.principal)));
   op("clear", (id, c) => engine.clear(id, actor(c.principal)));
+  // "Check now": re-poll on the next tick (a few seconds) instead of waiting for the interval.
+  route("POST", "/api/checks/:id/poll", async c => {
+    const conn = visible(c.principal, c.params.id);
+    if (!DRIVERS[conn.driver]?.poll) throw new UserError("This check is push-based; it updates when the source sends something.");
+    await runner.runCheck(conn.id);
+    return { ok: true, state: engine.state(conn.id)?.state };
+  }, "operate");
 
   // ---------- incidents: records you can track, annotate, archive and export ----------
   const incident = (p: Principal, raw: string) => {

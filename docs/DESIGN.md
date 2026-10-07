@@ -86,6 +86,35 @@ Not every alert deserves a light. There are two tools, and they do different job
 Both actions need a signed-in user, record who did it and why, and appear in the signal
 log.
 
+### Incidents as records: track and archive
+
+The card answers "is it broken now?". The **incident** answers "what happened, and what did
+we do?". Every issue a source reports becomes an incident record with:
+
+- the **vendor's reference** where there is one, e.g. **SP1489449** (Microsoft 365,
+  SharePoint Online, "Some users are not able to see apps", a service degradation, so
+  **yellow**). The reference leads the card text and is searchable.
+- the vendor's **impact statement** and **start time**, kept separate from when we
+  **detected** it. Durations count from the vendor's start when known.
+- a **timeline**: each vendor post (recorded once, however many polls see it), detection,
+  state changes, snooze, park, **notes** from your team, close or reopen.
+
+Actions on an incident:
+
+| Action | When | Effect |
+|---|---|---|
+| **Track** | Open incidents | Follow it: a ◎ SP1489449 chip on the card, a TRACKED badge in the log. **Archived automatically when it closes.** |
+| **Archive** | Closed incidents | Keep the record permanently. Untracked, unarchived records are purged after **90 days**. |
+| **Add note** | Any | Who you told, what you saw, what you did. |
+| **Copy as Markdown / Download .md** | Any | A clean record for a ticket, a postmortem or a Slack thread. |
+| **Check now** | Polled checks | Ask the source immediately instead of waiting for the next poll, e.g. to confirm a fix. |
+
+If the same vendor incident disappears and comes back within 6 hours, it **reopens the
+same record** instead of starting a new one. The **Log** view lists every incident with
+Open / Tracked / Archived / All filters and a search box (by reference, service or text).
+Incidents follow their check's visibility rules exactly. MCP has `list_incidents` and
+`get_incident`, so an assistant can summarize or draft a postmortem from the record.
+
 ## 3. The compressed-time history strip
 
 Task Manager's scrolling graph, folded so the recent past gets the most room. The strip is
@@ -117,7 +146,8 @@ for 100+ checks.
 | **Cards** | Desk use | Grouped by Public SaaS / Our platforms / Infrastructure. With **Auto-focus** on, anything needing attention rises into a "Needs attention" section, followed by "Planned". Healthy groups sort recently-recovered first, so PEAK tags stay near the top. |
 | **List** | Density, triage | One row per check. The status color sits on the name pill. Wider history (1-minute cells for the last hour). On narrow screens, rows stack. |
 | **Board** | TV / NOC wall | Designed to fit **1920×1080** with no scrolling (verified for about 18 checks; past about 40 it needs group roll-ups). No controls to fiddle with. Attention items are big; healthy checks collapse to small tiles with a mini history. A "recent changes" ticker along the bottom answers "did that clear?" ("14:02 Slack ● OK after 9m"). Requests a screen wake lock; `F` toggles fullscreen. |
-| **Side panel** | Click any card or row | Current state, **Open source ↗**, snooze, false alarm, park or clear, signal facts (source, interval, last heard), a full-width history strip, and the raw signal log. |
+| **Side panel** | Click any card or row | Current state, **Open source ↗**, snooze, false alarm, park, clear, check now, signal facts (source, interval, last heard), the check's **incidents** (open ones and recent closed), a full-width history strip, and the raw signal log. Clicking an incident shows its record and timeline in the same panel. |
+| **Log** | Follow-up, reporting | Every incident: open, tracked, archived or all, with search. Rows show state, vendor reference, title, service, when it was detected and how long it lasted. |
 
 **Themes:** dark is the default and suits a TV. Light mode puts a **solid status banner
 behind each service name**, because thin colored borders wash out on white. Healthy checks
@@ -426,6 +456,8 @@ down-detector anyone can open.
 - Access: six roles × five clearance levels, plus group-based selective access, enforced
   server-side. Username and password now, SSO later.
 - Public demo: static snapshot plus browser-only history.
+- Incidents are records: vendor reference, timeline, notes; Track (auto-archives on close),
+  Archive (exempt from the 90-day purge), Markdown export, Log view.
 
 **Still open**
 
