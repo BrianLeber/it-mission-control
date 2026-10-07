@@ -1,0 +1,685 @@
+<title>IT Mission Control</title>
+<meta name="description" content="Status board prototype: card, list and TV board views with peak-hold borders and compressed-time history.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+<style>
+/* Layout: a dark instrument panel on a faint Task-Manager grid. Healthy channels sit dim;
+   anything off-nominal lights its border like a clip LED. One committed dark look (TV-first). */
+:root {
+  color-scheme: dark;
+  --bg: #070a09;
+  --panel: #0c110f;
+  --panel-2: #111815;
+  --grid: #12201a;
+  --line: #1d2b25;
+  --fg: #d6e2db;
+  --dim: #8a9b93;
+  --faint: #4a5a53;
+
+  --ok: #35d07f;
+  --warn: #ffcc33;
+  --crit: #ff3d3d;
+  --ack: #ff8a1f;
+  --maint: #4d8dff;
+  --stale: #8c9a93;
+
+  --f-display: "Chakra Petch", "Bahnschrift", "Arial Narrow", sans-serif;
+  --f-body: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --r: 6px;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--fg);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.wrap { padding-inline: 20px; padding-block: 0 40px; max-width: 1680px; margin: 0 auto; }
+button, a { color: inherit; font: inherit; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+/* state tokens -> one variable per element */
+[data-state="ok"]    { --s: var(--ok); }
+[data-state="warn"]  { --s: var(--warn); }
+[data-state="crit"]  { --s: var(--crit); }
+[data-state="ack"]   { --s: var(--ack); }
+[data-state="maint"] { --s: var(--maint); }
+[data-state="stale"] { --s: var(--stale); }
+
+/* ---------- top bar ---------- */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+  padding-block: 12px;
+  margin-bottom: 20px;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font-family: var(--f-display); font-weight: 700; font-size: 20px; letter-spacing: .06em; text-transform: uppercase; margin: 0; }
+.brand .clock { font-family: var(--f-data); color: var(--dim); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.meter { display: flex; align-items: center; gap: 10px; flex: 1 1 320px; min-width: 0; }
+.leds { display: flex; gap: 3px; flex: 1; min-width: 0; height: 18px; }
+.led { flex: 1; min-width: 4px; max-width: 26px; background: var(--s); border-radius: 2px; opacity: .9; }
+.led[data-state="ok"] { opacity: .35; }
+.led[data-state="crit"] { box-shadow: 0 0 8px var(--crit); }
+.counts { display: flex; gap: 10px; font-family: var(--f-data); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.counts span { color: var(--s); }
+.counts span[data-zero] { color: var(--faint); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg button { background: transparent; border: 0; padding: 6px 12px; cursor: pointer; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--ok); }
+.toggle { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px solid var(--line); border-radius: var(--r); padding: 6px 10px; cursor: pointer; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.toggle .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.toggle[aria-pressed="true"] { color: var(--fg); }
+.toggle[aria-pressed="true"] .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+
+/* ---------- sections ---------- */
+.section { margin-bottom: 28px; }
+.section-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.section-h b { color: var(--fg); font-weight: 600; }
+.section-h .rule { flex: 1; height: 1px; background: var(--line); align-self: center; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+
+/* ---------- card ---------- */
+.card {
+  position: relative;
+  background: var(--panel);
+  border: 2px solid color-mix(in srgb, var(--s) 85%, transparent);
+  border-radius: var(--r);
+  padding: 12px 14px 10px;
+  display: grid; gap: 8px;
+  cursor: pointer;
+  min-width: 0;
+  transition: border-color .4s, box-shadow .4s;
+}
+.card[data-state="ok"] { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.card[data-state="crit"] { box-shadow: 0 0 22px -6px var(--crit), inset 0 0 26px -14px var(--crit); animation: breathe 2.6s ease-in-out infinite alternate; }
+.card[data-state="warn"] { box-shadow: 0 0 16px -8px var(--warn); }
+.card[data-state="maint"] { background-image: repeating-linear-gradient(135deg, transparent 0 10px, color-mix(in srgb, var(--maint) 7%, transparent) 10px 20px); }
+.card[data-state="stale"] { border-style: dashed; }
+.card:hover { background-color: var(--panel-2); }
+
+@keyframes breathe { from { box-shadow: 0 0 14px -6px var(--crit), inset 0 0 18px -14px var(--crit); } to { box-shadow: 0 0 30px -4px var(--crit), inset 0 0 30px -12px var(--crit); } }
+.flash::after {
+  content: ""; position: absolute; inset: -2px; border-radius: var(--r); pointer-events: none;
+  border: 2px solid #fff; background: color-mix(in srgb, var(--s) 30%, transparent);
+  animation: flash 1.4s steps(1, end) 1 forwards;
+}
+@keyframes flash { 0%{opacity:1} 14%{opacity:0} 28%{opacity:1} 42%{opacity:0} 56%{opacity:.8} 70%,100%{opacity:0} }
+
+.c-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; min-width: 0; }
+.mono { width: 34px; height: 34px; border-radius: 7px; display: grid; place-items: center; background: var(--brand); color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .02em; flex: none; }
+.c-title { min-width: 0; }
+.c-title h3 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 17px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c-sub { font-family: var(--f-data); font-size: 11px; color: var(--dim); letter-spacing: .02em; }
+
+.peak { font-family: var(--f-data); font-size: 11px; font-weight: 600; color: var(--pk); border: 1px solid var(--pk); border-radius: 3px; padding: 1px 5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.peak-notch { position: absolute; top: -2px; right: -2px; width: 0; height: 0; border-top: 14px solid var(--pk); border-left: 14px solid transparent; border-top-right-radius: var(--r); }
+
+.c-state { display: flex; align-items: baseline; gap: 8px; font-family: var(--f-display); font-weight: 700; letter-spacing: .1em; font-size: 14px; color: var(--s); }
+.card[data-state="ok"] .c-state { color: color-mix(in srgb, var(--ok) 75%, var(--fg)); }
+.glyph { font-size: 12px; }
+.dur { margin-left: auto; font-family: var(--f-data); font-weight: 500; letter-spacing: 0; color: var(--fg); font-size: 13px; font-variant-numeric: tabular-nums; }
+.c-msg { margin: 0; color: var(--fg); font-size: 14px; min-height: 2.8em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card[data-state="ok"] .c-msg { color: var(--dim); }
+.c-foot { display: flex; justify-content: space-between; gap: 8px; font-family: var(--f-data); font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.c-foot a { color: var(--dim); text-decoration: none; }
+.c-foot a:hover { color: var(--fg); text-decoration: underline; }
+
+/* ---------- history strip (compressed time) ---------- */
+.hist { display: flex; gap: 3px; min-width: 0; }
+.zone { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cells { display: flex; gap: 1px; height: 16px; }
+.cell { flex: 1; min-width: 1px; border-radius: 1px; background: var(--s); }
+.cell[data-state="ok"] { opacity: .22; }
+.cell[data-state="nodata"] { background: var(--line); }
+.zone + .zone .cells { border-left: 1px solid var(--faint); padding-left: 2px; }
+.zlabel { font-family: var(--f-data); font-size: 10px; color: var(--faint); line-height: 1; white-space: nowrap; }
+.zone:last-child .zlabel { display: flex; justify-content: space-between; }
+
+/* ---------- list view ---------- */
+.list { display: grid; gap: 6px; }
+.row {
+  display: grid; align-items: center; gap: 14px;
+  grid-template-columns: minmax(200px, 1.1fr) 170px minmax(0, 1.6fr) minmax(220px, 1.8fr) 96px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 8px 12px; cursor: pointer; min-width: 0; position: relative;
+}
+.row:hover { background: var(--panel-2); }
+.row .namepill { display: flex; align-items: center; gap: 10px; min-width: 0; border: 2px solid var(--s); border-radius: 999px; padding: 3px 12px 3px 3px; justify-self: start; max-width: 100%; }
+.row[data-state="ok"] .namepill { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.row[data-state="crit"] .namepill { box-shadow: 0 0 14px -3px var(--crit); }
+.row[data-state="stale"] .namepill { border-style: dashed; }
+.row .namepill .mono { width: 26px; height: 26px; border-radius: 50%; font-size: 11px; }
+.row .namepill b { font-family: var(--f-display); font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .st { display: flex; flex-direction: column; font-family: var(--f-display); font-weight: 700; letter-spacing: .08em; font-size: 13px; color: var(--s); }
+.row[data-state="ok"] .st { color: color-mix(in srgb, var(--ok) 75%, var(--fg)); }
+.row .st .dur { margin: 0; font-size: 12px; color: var(--dim); }
+.row .msg { color: var(--fg); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.row[data-state="ok"] .msg { color: var(--dim); }
+.row .seen { font-family: var(--f-data); font-size: 11px; color: var(--dim); text-align: right; }
+.row .peak { position: absolute; top: -7px; left: 26px; background: var(--panel); }
+.row.flash::after { border-radius: var(--r); }
+.list-head { display: grid; gap: 14px; grid-template-columns: minmax(200px, 1.1fr) 170px minmax(0, 1.6fr) minmax(220px, 1.8fr) 96px; padding: 0 13px; font-family: var(--f-display); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+@media (max-width: 900px) {
+  .row { grid-template-columns: 1fr auto; }
+  .row .msg, .row .hist { grid-column: 1 / -1; }
+  .row .seen { display: none; }
+  .list-head { display: none; }
+}
+
+/* ---------- board (TV) view ---------- */
+body.board .wrap { max-width: none; }
+body.board .controls .demo-only { display: none; }
+.board-attn { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+.board-attn .card { padding: 18px 20px 14px; gap: 12px; }
+.board-attn .card .c-title h3 { font-size: 26px; }
+.board-attn .card .mono { width: 48px; height: 48px; font-size: 17px; }
+.board-attn .card .c-state { font-size: 20px; }
+.board-attn .card .dur { font-size: 20px; }
+.board-attn .card .c-msg { font-size: 18px; }
+.board-attn .card .cells { height: 22px; }
+.board-calm { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+.tile { position: relative; background: var(--panel); border: 2px solid color-mix(in srgb, var(--s) 35%, transparent); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 8px; cursor: pointer; min-width: 0; }
+.tile[data-state="maint"] { border-color: var(--maint); }
+.tile .t-head { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.tile .mono { width: 26px; height: 26px; font-size: 11px; border-radius: 6px; }
+.tile b { font-family: var(--f-display); font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.tile .glyph { color: var(--s); }
+.tile .cells { height: 8px; }
+.tile .zlabel { display: none !important; }
+.all-clear { font-family: var(--f-display); font-weight: 700; font-size: 28px; letter-spacing: .1em; color: var(--ok); padding: 26px; border: 2px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: var(--r); text-align: center; }
+.ticker { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-wrap: wrap; gap: 6px 24px; font-family: var(--f-data); font-size: 13px; color: var(--dim); }
+.ticker .tk { white-space: nowrap; }
+.ticker .tk i { font-style: normal; color: var(--s); }
+
+/* ---------- side panel ---------- */
+.scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .5); z-index: 30; }
+.panel {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 31;
+  width: min(480px, 100vw); background: var(--panel); border-left: 2px solid var(--s);
+  display: flex; flex-direction: column; box-shadow: -20px 0 40px rgb(0 0 0 / .5);
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.p-head { padding: 16px 18px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+.p-head .c-head h3 { font-size: 22px; }
+.p-close { background: transparent; border: 1px solid var(--line); border-radius: var(--r); width: 32px; height: 32px; cursor: pointer; color: var(--dim); font-size: 18px; line-height: 1; }
+.p-body { overflow-y: auto; padding: 16px 18px; display: grid; gap: 18px; align-content: start; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; margin: 0; }
+.facts dt { color: var(--dim); font-family: var(--f-data); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+.facts dd { margin: 0; font-family: var(--f-data); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r); padding: 7px 12px; cursor: pointer; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; text-decoration: none; }
+.btn.primary { border-color: var(--fg); }
+.btn.ack { border-color: var(--ack); color: var(--ack); }
+.p-sub { font-family: var(--f-display); font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin: 0 0 8px; }
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; font-family: var(--f-data); font-size: 12px; }
+.log li { display: grid; grid-template-columns: 92px 14px 1fr; gap: 8px; padding: 6px 8px; background: var(--bg); }
+.log time { color: var(--dim); font-variant-numeric: tabular-nums; }
+.log .glyph { color: var(--s); }
+.log .m { min-width: 0; overflow-wrap: anywhere; }
+.log .o { display: block; color: var(--faint); font-size: 11px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--f-data); font-size: 12px; color: var(--dim); margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--line); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { font-style: normal; color: var(--s); }
+.demo-note { font-family: var(--f-data); font-size: 11px; color: var(--faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card[data-state="crit"] { animation: none; }
+  .flash::after { animation: none; opacity: 0; }
+  .card, .row { transition: none; }
+}
+@media (max-width: 560px) {
+  .wrap { padding-inline: 16px; }
+  .brand h1 { font-size: 17px; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>Mission Control</h1><span class="clock" id="clock">--:--:--</span></div>
+    <div class="meter" aria-label="All checks by state">
+      <div class="leds" id="leds"></div>
+      <div class="counts" id="counts"></div>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View">
+        <button id="v-cards" data-view="cards" aria-pressed="true">Cards</button>
+        <button id="v-list" data-view="list" aria-pressed="false">List</button>
+        <button id="v-board" data-view="board" aria-pressed="false">Board</button>
+      </div>
+      <button class="toggle" id="t-focus" aria-pressed="true" title="Bring issues to the top"><span class="dot"></span>Auto-focus</button>
+      <button class="toggle demo-only" id="t-demo" aria-pressed="true" title="Play scripted status changes"><span class="dot"></span>Demo feed</button>
+      <button class="toggle demo-only" id="b-step" aria-pressed="false" title="Apply the next scripted change now">Next event ›</button>
+    </div>
+  </header>
+
+  <main id="main"></main>
+
+  <footer class="legend" id="legend"></footer>
+  <p class="demo-note">Prototype with simulated data. History strip, left to right: 3 weeks in week cells, 6 days in day cells, 23 hours in hour cells, the last hour in 2-minute cells. Faint cells are healthy; brighter cells mean more of that period was affected.</p>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="panel" id="panel" hidden aria-label="Check details"></aside>
+
+<script>
+(() => {
+const MIN = 60e3, HR = 60 * MIN, DAY = 24 * HR, WK = 7 * DAY;
+
+const STATES = {
+  crit:  { rank: 6, label: "DOWN",         short: "DOWN",  glyph: "◆" },
+  warn:  { rank: 5, label: "DEGRADED",     short: "DEGR",  glyph: "▲" },
+  stale: { rank: 4, label: "NO SIGNAL",    short: "NOSIG", glyph: "○" },
+  ack:   { rank: 3, label: "ACKNOWLEDGED", short: "ACK",   glyph: "■" },
+  maint: { rank: 2, label: "MAINTENANCE",  short: "MAINT", glyph: "◇" },
+  ok:    { rank: 1, label: "OPERATIONAL",  short: "OK",    glyph: "●" },
+};
+const ORDER = ["crit", "warn", "stale", "ack", "maint", "ok"];
+const PEAK_HOLD = 30 * MIN;
+const GROUPS = ["Public SaaS", "Our platforms", "Infrastructure"];
+
+// --- seeded noise so histories look the same on every load
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// ago() in ms relative to load time
+const ago = ms => Date.now() - ms;
+
+function seedChecks() {
+  const c = [
+    { id: "slack", name: "Slack", group: "Public SaaS", mono: "Sl", brand: "#611f69", src: "poll 60s", via: "Slack status API", url: "https://slack-status.com/",
+      state: "ok", since: ago(6 * MIN), msg: "All services operational", peak: { state: "crit", at: ago(6 * MIN), dur: 9 * MIN },
+      inc: [[15 * MIN, 9 * MIN, "crit"], [3 * DAY, 2 * HR, "warn"], [17 * DAY, 40 * MIN, "warn"]] },
+    { id: "zoom", name: "Zoom", group: "Public SaaS", mono: "Zm", brand: "#0b5cff", src: "poll 60s", via: "Statuspage API", url: "https://status.zoom.us/",
+      state: "maint", since: ago(25 * MIN), msg: "Zoom Phone scheduled maintenance, ends 21:00", openState: "maint",
+      inc: [[9 * DAY, 3 * HR, "maint"]] },
+    { id: "m365", name: "Microsoft 365", group: "Public SaaS", mono: "365", brand: "#c43e1c", src: "poll 5m", via: "Graph service health", url: "https://admin.microsoft.com/#/servicehealth",
+      state: "warn", since: ago(23 * MIN), msg: "EX918273: Some users may see delays receiving external email", openState: "warn",
+      inc: [[2 * DAY, 5 * HR, "warn"], [12 * DAY, 90 * MIN, "crit", true], [20 * DAY, 4 * HR, "warn"]] },
+    { id: "okta", name: "Okta", group: "Public SaaS", mono: "Ok", brand: "#2b2bd6", src: "poll 60s", via: "Status RSS", url: "https://status.okta.com/",
+      state: "ok", since: ago(11 * DAY), msg: "All systems operational", inc: [[11 * DAY, 35 * MIN, "warn"]] },
+    { id: "gws", name: "Google Workspace", group: "Public SaaS", mono: "G", brand: "#1a73e8", src: "poll 5m", via: "Status JSON feed", url: "https://www.google.com/appsstatus/dashboard/",
+      state: "ok", since: ago(5 * DAY), msg: "No active incidents", inc: [[5 * DAY, 3 * HR, "warn"]] },
+    { id: "github", name: "GitHub", group: "Public SaaS", mono: "GH", brand: "#24292f", src: "poll 60s", via: "Statuspage API", url: "https://www.githubstatus.com/",
+      state: "ok", since: ago(2 * DAY), msg: "All systems operational", inc: [[2 * DAY, 70 * MIN, "crit", true], [8 * DAY, 2 * HR, "warn"], [24 * DAY, 30 * MIN, "warn"]] },
+
+    { id: "jamf", name: "Jamf Pro", group: "Our platforms", mono: "J", brand: "#3f4a59", src: "api 2m", via: "Jamf Pro API", url: "https://example.jamfcloud.com/",
+      state: "ok", since: ago(26 * DAY), msg: "Health check OK · 1,284 devices checked in within 24h", inc: [[26 * DAY, 20 * MIN, "crit"]] },
+    { id: "ninja", name: "NinjaOne", group: "Our platforms", mono: "N1", brand: "#1c6b4a", src: "api 2m", via: "NinjaOne API", url: "https://app.ninjarmm.com/",
+      state: "ok", since: ago(15 * DAY), msg: "API reachable · 3 open device alerts", inc: [[15 * DAY, 45 * MIN, "warn"]] },
+    { id: "front", name: "Front · IT queue", group: "Our platforms", mono: "F", brand: "#a23ce0", src: "api 5m", via: "Front API snapshot", url: "https://app.frontapp.com/",
+      state: "warn", since: ago(41 * MIN), msg: "3 conversations past SLA · 17 open · oldest 6h 10m", openState: "warn",
+      inc: [[1 * DAY + 3 * HR, 2 * HR, "warn"], [4 * DAY, 3 * HR, "warn"], [6 * DAY, 1 * HR, "warn"], [13 * DAY, 4 * HR, "warn"]] },
+
+    { id: "vcenter", name: "vCenter", group: "Infrastructure", mono: "vC", brand: "#1d428a", src: "api 2m", via: "vSphere REST API", url: "https://vcenter.example.local/ui/",
+      state: "ok", since: ago(19 * DAY), msg: "3 hosts · 42 VMs · 0 triggered alarms", inc: [[19 * DAY, 6 * HR, "maint"]] },
+    { id: "fs01", name: "FS01", group: "Infrastructure", mono: "FS", brand: "#00597a", src: "webhook", via: "NinjaOne alert webhook", url: "https://app.ninjarmm.com/",
+      state: "ack", since: ago(72 * MIN), msg: "Disk D: 92% used · acknowledged by Brian L.", ackBy: "Brian L.", openState: "ack",
+      inc: [[3 * HR, 108 * MIN, "warn"]] },
+    { id: "dc01", name: "DC01", group: "Infrastructure", mono: "DC", brand: "#00597a", src: "webhook", via: "NinjaOne alert webhook", url: "https://app.ninjarmm.com/",
+      state: "ok", since: ago(21 * DAY), msg: "AD DS, DNS and Netlogon running", inc: [[21 * DAY, 25 * MIN, "maint"]] },
+    { id: "web01", name: "web-01", group: "Infrastructure", mono: "W1", brand: "#4a3b2a", src: "ping 1m", via: "Heartbeat from cron", url: "https://web-01.example.local/",
+      state: "ok", since: ago(7 * DAY), msg: "Heartbeat on schedule", inc: [[7 * DAY, 15 * MIN, "crit"]] },
+    { id: "veeam", name: "Veeam · Nightly VMs", group: "Infrastructure", mono: "Vm", brand: "#00865f", src: "email", via: "Email alerts, parsed", url: "https://veeam.example.local/",
+      state: "crit", since: ago(6 * HR + 12 * MIN), msg: "Job 'Nightly-VMs' failed: 2 of 42 VMs. Waiting for a success email.", openState: "crit",
+      inc: [[4 * DAY, 4 * HR, "crit"], [16 * DAY, 2 * HR, "crit", true]] },
+    { id: "nas", name: "backup-nas", group: "Infrastructure", mono: "NAS", brand: "#3b3b3b", src: "ping 5m", via: "Heartbeat from cron", url: "https://backup-nas.example.local/",
+      state: "stale", since: ago(14 * MIN), msg: "No heartbeat for 14m (expected every 5m)", openState: "stale",
+      inc: [[10 * DAY, 30 * MIN, "stale"]] },
+    { id: "ups", name: "UPS · Server room", group: "Infrastructure", mono: "UPS", brand: "#5a4a10", src: "email", via: "Email alerts, parsed", url: "https://ups.example.local/",
+      state: "ok", since: ago(3 * DAY), msg: "On utility power · self-test passed", inc: [[3 * DAY, 20 * MIN, "crit", true], [22 * DAY, 10 * MIN, "warn"]] },
+  ];
+  for (const s of c) {
+    const r = rng(s.id.length * 977 + s.id.charCodeAt(0));
+    s.monitoredFrom = ago(s.id === "front" ? 17 * DAY : 30 * DAY);
+    // closed incidents: [startAgo, duration, state, explained]
+    s.incidents = s.inc.map(([a, d, st, ex]) => ({ start: ago(a), end: ago(a) + d, state: ex ? "maint" : st, orig: st, explained: !!ex }));
+    if (s.openState) s.incidents.push({ start: s.since, end: null, state: s.openState });
+    if (s.id === "fs01") s.incidents = [{ start: ago(3 * HR), end: ago(72 * MIN), state: "warn" }, { start: ago(72 * MIN), end: null, state: "ack" }];
+    const iv = parseInt(s.src.match(/(\d+)(m|s)/)?.[1] || "2", 10) * (/s$/.test(s.src) ? 1000 : MIN);
+    s.interval = s.src === "email" ? null : s.src === "webhook" ? 5 * MIN : iv;
+    s.lastSeen = s.state === "stale" ? ago(14 * MIN) : Date.now() - Math.floor(r() * (s.interval || 4 * HR));
+    if (s.src === "email" && s.openState) s.lastSeen = s.since;
+    s.log = seedLog(s);
+    s.flash = s.state === "crit" || s.state === "warn";
+  }
+  return c;
+}
+
+function seedLog(s) {
+  const L = [];
+  const add = (t, state, m, o) => L.push({ t, state, m, o: o || s.via });
+  for (const i of [...s.incidents].sort((a, b) => a.start - b.start)) {
+    if (i.end === null) continue;
+    add(i.start, i.orig || i.state, i.explained ? "Outage (later explained: vendor-confirmed, root cause posted)" : `${STATES[i.orig || i.state].label.toLowerCase()} detected`);
+    if (!s.incidents.some(j => j.start === i.end)) add(i.end, "ok", "Recovered");
+  }
+  if (s.id === "veeam") { add(ago(6 * HR + 12 * MIN), "crit", "Email: \"[Failed] Nightly-VMs (2 VMs failed)\" from veeam@example.local", "Mail rule: veeam-job-result"); }
+  if (s.id === "m365") { add(ago(23 * MIN), "warn", "EX918273 opened: Exchange Online, delays receiving external email"); add(ago(8 * MIN), "warn", "EX918273 updated: Microsoft is reviewing mail flow telemetry"); }
+  if (s.id === "fs01") { add(ago(72 * MIN), "ack", "Acknowledged by Brian L.: \"Archiving old scans tonight\"", "Mission Control"); }
+  if (s.id === "front") add(ago(41 * MIN), "warn", "Snapshot: 3 past SLA (threshold 1)", "Front API snapshot");
+  if (s.id === "zoom") add(ago(25 * MIN), "maint", "Scheduled maintenance started: Zoom Phone, 20:00–21:00");
+  if (s.id === "nas") add(ago(14 * MIN), "stale", "Heartbeat overdue (grace 2× interval)", "Heartbeat monitor");
+  return L.sort((a, b) => b.t - a.t);
+}
+
+// --- demo script: each step is [checkId, state, message, origin]
+const SCRIPT = [
+  ["github", "warn", "Incident: Degraded performance for GitHub Actions", "Statuspage API"],
+  ["veeam", "ok", "Email: \"[Success] Nightly-VMs (retry)\" closed the open failure", "Mail rule: veeam-job-result"],
+  ["github", "crit", "Incident escalated: GitHub Actions unavailable", "Statuspage API"],
+  ["nas", "ok", "Heartbeat received", "Heartbeat monitor"],
+  ["zoom", "ok", "Scheduled maintenance completed", "Statuspage API"],
+  ["web01", "crit", "Missed 3 heartbeats in a row", "Heartbeat monitor"],
+  ["m365", "ok", "EX918273 resolved: mail flow restored", "Graph service health"],
+  ["web01", "ok", "Heartbeat received", "Heartbeat monitor"],
+  ["github", "ok", "Resolved: GitHub Actions operating normally", "Statuspage API"],
+  ["front", "ok", "Snapshot: 0 past SLA · 12 open", "Front API snapshot"],
+  ["okta", "warn", "Classifier: email \"Okta Verify push delays\" matched Okta (0.91)", "Email · model classifier"],
+  ["okta", "ok", "Classifier: follow-up email \"Resolved: push delays\" closed it (0.94)", "Email · model classifier"],
+];
+
+let checks = seedChecks();
+let step = 0;
+let view = "cards", autoFocus = true, demo = true;
+let openId = null;
+const changes = []; // recent transitions for the board ticker
+
+// --- state changes
+function apply(id, state, msg, origin) {
+  const s = checks.find(c => c.id === id); if (!s || s.state === state) return;
+  const now = Date.now(), prev = s.state;
+  const open = s.incidents.find(i => i.end === null);
+  if (open) open.end = now;
+  if (state !== "ok") s.incidents.push({ start: now, end: null, state });
+  if (state === "ok" && STATES[prev].rank >= STATES.ack.rank) {
+    const peakState = (s.peak && now - s.peak.at < PEAK_HOLD && STATES[s.peak.state].rank > STATES[prev].rank) ? s.peak.state : (prev === "ack" ? "warn" : prev);
+    s.peak = { state: peakState === "stale" ? "warn" : peakState, at: now, dur: now - s.since };
+  }
+  changes.unshift({ t: now, id, name: s.name, from: prev, to: state, dur: now - s.since });
+  changes.length = Math.min(changes.length, 8);
+  s.state = state; s.since = now; s.msg = msg.replace(/^(Email|Classifier): /, ""); s.lastSeen = now;
+  s.log.unshift({ t: now, state, m: msg, o: origin });
+  s.flash = state === "crit" || state === "warn";
+  render();
+}
+
+// --- time buckets: further back = coarser
+function zones(kind) {
+  const minute = kind === "wide" ? { n: 60, size: MIN } : kind === "tile" ? { n: 12, size: 5 * MIN } : { n: 30, size: 2 * MIN };
+  return [
+    { label: "4w", n: 3,  size: WK,  span: 3 * WK,  endAgo: WK,   flex: 12 },
+    { label: "7d", n: 6,  size: DAY, span: 6 * DAY, endAgo: DAY,  flex: 18 },
+    { label: "24h", n: 23, size: HR, span: 23 * HR, endAgo: HR,   flex: 30 },
+    { label: "1h", n: minute.n, size: minute.size, span: HR, endAgo: 0, flex: 40 },
+  ];
+}
+function bucket(s, a, b) {
+  if (b <= s.monitoredFrom) return { state: "nodata", frac: 0 };
+  let worst = "ok", hit = 0;
+  for (const i of s.incidents) {
+    const e = i.end ?? Date.now();
+    const o = Math.min(b, e) - Math.max(a, i.start);
+    if (o <= 0) continue;
+    hit += o;
+    if (STATES[i.state].rank > STATES[worst].rank) worst = i.state;
+  }
+  return { state: worst, frac: Math.min(1, hit / (b - a)) };
+}
+function histHTML(s, kind) {
+  const now = Date.now();
+  return `<div class="hist" aria-label="Status history, last 4 weeks">` + zones(kind).map(z => {
+    const end = now - z.endAgo, start = end - z.span;
+    let cells = "";
+    for (let k = 0; k < z.n; k++) {
+      const a = start + k * z.size, b = a + z.size;
+      const { state, frac } = bucket(s, a, b);
+      const op = state === "ok" || state === "nodata" ? "" : ` style="opacity:${(0.5 + 0.5 * Math.min(1, frac * 3)).toFixed(2)}"`;
+      const tip = state === "nodata" ? "not monitored yet" : `${fmtStamp(a)} to ${fmtStamp(b)} · ${STATES[state].label.toLowerCase()}${state !== "ok" ? ` ${Math.max(1, Math.round(frac * 100))}% of period` : ""}`;
+      cells += `<span class="cell" data-state="${state}"${op} title="${tip}"></span>`;
+    }
+    const lbl = z.endAgo === 0 ? `<span>${z.label}</span><span>now</span>` : z.label;
+    return `<div class="zone" style="flex:${z.flex}"><div class="cells">${cells}</div><div class="zlabel">${lbl}</div></div>`;
+  }).join("") + `</div>`;
+}
+
+// --- formatting
+function fmtDur(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ${String(m % 60).padStart(2, "0")}m`;
+  const d = Math.floor(h / 24); return `${d}d ${h % 24}h`;
+}
+const fmtClock = t => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+function fmtStamp(t) {
+  const d = new Date(t), today = new Date().toDateString() === d.toDateString();
+  return today ? fmtClock(t) : d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + fmtClock(t);
+}
+const esc = x => String(x).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// --- pieces
+function peakHTML(s, kind) {
+  if (!s.peak || s.state !== "ok") return "";
+  const age = Date.now() - s.peak.at; if (age > PEAK_HOLD) return "";
+  const fade = (1 - 0.6 * age / PEAK_HOLD).toFixed(2);
+  const pk = `var(--${s.peak.state})`;
+  const tag = `<span class="peak" style="--pk:${pk};opacity:${fade}" title="Was ${STATES[s.peak.state].label.toLowerCase()} for ${fmtDur(s.peak.dur)}, cleared ${fmtDur(age)} ago">${STATES[s.peak.state].glyph} PEAK <span data-ago="${s.peak.at}">${fmtDur(age)}</span></span>`;
+  return kind === "card" ? { tag, notch: `<span class="peak-notch" style="--pk:${pk};opacity:${fade}"></span>` } : tag;
+}
+function seenText(s) {
+  if (s.src === "email") return `last mail <span data-ago="${s.lastSeen}">${fmtDur(Date.now() - s.lastSeen)}</span> ago`;
+  return `seen <span data-ago="${s.lastSeen}">${fmtDur(Date.now() - s.lastSeen)}</span> ago`;
+}
+function cardHTML(s) {
+  const st = STATES[s.state], pk = peakHTML(s, "card") || {};
+  return `<article class="card" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${st.label}">
+    ${pk.notch || ""}
+    <div class="c-head">
+      <span class="mono" style="--brand:${s.brand}">${s.mono}</span>
+      <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">${s.group} · ${s.src}</span></div>
+      ${pk.tag || ""}
+    </div>
+    <div class="c-state"><span class="glyph">${st.glyph}</span>${st.label}<span class="dur" data-since="${s.since}" title="Time in this state">${fmtDur(Date.now() - s.since)}</span></div>
+    <p class="c-msg">${esc(s.msg)}</p>
+    ${histHTML(s, "card")}
+    <div class="c-foot"><span>${seenText(s)}</span><a href="${s.url}" target="_blank" rel="noopener" data-stop>source ↗</a></div>
+  </article>`;
+}
+function rowHTML(s) {
+  const st = STATES[s.state];
+  return `<div class="row" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${st.label}">
+    ${peakHTML(s, "row")}
+    <span class="namepill"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}</b></span>
+    <span class="st"><span><span class="glyph">${st.glyph}</span> ${st.label}</span><span class="dur" data-since="${s.since}">for ${fmtDur(Date.now() - s.since)}</span></span>
+    <span class="msg" title="${esc(s.msg)}">${esc(s.msg)}</span>
+    ${histHTML(s, "wide")}
+    <span class="seen">${seenText(s)}</span>
+  </div>`;
+}
+function tileHTML(s) {
+  const st = STATES[s.state];
+  return `<div class="tile" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${st.label}">
+    <div class="t-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}</b>${peakHTML(s, "row") || `<span class="glyph">${st.glyph}</span>`}</div>
+    ${histHTML(s, "tile")}
+  </div>`;
+}
+
+const rank = s => STATES[s.state].rank;
+const needsEye = s => ["crit", "warn", "stale", "ack"].includes(s.state);
+const bySeverity = (a, b) => rank(b) - rank(a) || b.since - a.since;
+function section(title, count, body) {
+  return `<section class="section"><h2 class="section-h"><b>${title}</b>${count != null ? `<span>${count}</span>` : ""}<span class="rule"></span></h2>${body}</section>`;
+}
+
+function renderCards() {
+  if (!autoFocus) return GROUPS.map(g => { const l = checks.filter(c => c.group === g); return section(g, l.length, `<div class="grid">${l.map(cardHTML).join("")}</div>`); }).join("");
+  const attn = checks.filter(needsEye).sort(bySeverity);
+  const planned = checks.filter(c => c.state === "maint");
+  const calm = c => c.state === "ok";
+  let h = "";
+  if (attn.length) h += section("Needs attention", attn.length, `<div class="grid">${attn.map(cardHTML).join("")}</div>`);
+  if (planned.length) h += section("Planned", planned.length, `<div class="grid">${planned.map(cardHTML).join("")}</div>`);
+  for (const g of GROUPS) {
+    const l = checks.filter(c => c.group === g && calm(c)).sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0));
+    if (l.length) h += section(g, `${l.length} operational`, `<div class="grid">${l.map(cardHTML).join("")}</div>`);
+  }
+  return h;
+}
+function renderList() {
+  const head = `<div class="list-head"><span>Service</span><span>Current</span><span>Detail</span><span>History · 4w → now</span><span style="text-align:right">Signal</span></div>`;
+  if (!autoFocus) return GROUPS.map(g => section(g, null, `<div class="list">${checks.filter(c => c.group === g).map(rowHTML).join("")}</div>`)).join("").replace("<div class=\"list\">", head + "<div class=\"list\">");
+  return `${head}<div class="list">${[...checks].sort(bySeverity).map(rowHTML).join("")}</div>`;
+}
+function renderBoard() {
+  const attn = checks.filter(c => needsEye(c) || c.state === "maint").sort(bySeverity);
+  const calm = checks.filter(c => !attn.includes(c));
+  let h = attn.length
+    ? `<div class="board-attn">${attn.map(cardHTML).join("")}</div>`
+    : `<div class="all-clear">ALL SYSTEMS OPERATIONAL</div>`;
+  h = section(attn.length ? "Attention" : "Status", attn.length || null, h);
+  h += section("Operational", calm.length, `<div class="board-calm">${calm.sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group)).map(tileHTML).join("")}</div>`);
+  const tk = changes.length ? changes : [];
+  h += `<div class="ticker" aria-label="Recent changes">${tk.length ? tk.map(c => `<span class="tk" data-state="${c.to}">${fmtClock(c.t)} ${esc(c.name)} <i>${STATES[c.to].glyph} ${STATES[c.to].short}</i>${c.to === "ok" ? ` after ${fmtDur(c.dur)}` : ""}</span>`).join("") : `<span class="tk">No changes since this screen loaded.</span>`}</div>`;
+  return h;
+}
+
+function renderTop() {
+  const sorted = [...checks].sort(bySeverity);
+  document.getElementById("leds").innerHTML = sorted.map(s => `<span class="led" data-state="${s.state}" title="${esc(s.name)}: ${STATES[s.state].label}"></span>`).join("");
+  document.getElementById("counts").innerHTML = ORDER.map(k => { const n = checks.filter(c => c.state === k).length; return `<span data-state="${k}"${n ? "" : " data-zero"} title="${STATES[k].label}">${STATES[k].glyph} ${n}</span>`; }).join("");
+}
+
+// FLIP so re-ordering reads as movement rather than a jump
+function render() {
+  const main = document.getElementById("main");
+  const before = new Map([...main.querySelectorAll("[data-id]")].map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  main.innerHTML = view === "cards" ? renderCards() : view === "list" ? renderList() : renderBoard();
+  renderTop();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for (const el of main.querySelectorAll("[data-id]")) {
+    const s = checks.find(c => c.id === el.dataset.id);
+    if (s.flash) { el.classList.add("flash"); el.addEventListener("animationend", () => el.classList.remove("flash"), { once: true }); }
+    const b = before.get(el.dataset.id); if (!b || reduce) continue;
+    const a = el.getBoundingClientRect(), dx = b.left - a.left, dy = b.top - a.top;
+    if (dx || dy) el.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: "none" }], { duration: 600, easing: "cubic-bezier(.2,.7,.2,1)" });
+  }
+  for (const s of checks) s.flash = false;
+  if (openId) renderPanel();
+}
+
+// --- side panel
+function renderPanel() {
+  const s = checks.find(c => c.id === openId), p = document.getElementById("panel"), st = STATES[s.state];
+  const open = s.incidents.find(i => i.end === null);
+  p.dataset.state = s.state;
+  p.innerHTML = `
+    <div class="p-head">
+      <div class="c-head">
+        <span class="mono" style="--brand:${s.brand}">${s.mono}</span>
+        <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">${s.group}</span></div>
+        <button class="p-close" id="p-close" aria-label="Close details">×</button>
+      </div>
+      <div class="c-state" data-state="${s.state}"><span class="glyph">${st.glyph}</span>${st.label}<span class="dur" data-since="${s.since}">${fmtDur(Date.now() - s.since)}</span></div>
+      <div>${esc(s.msg)}</div>
+      <div class="actions">
+        <a class="btn primary" href="${s.url}" target="_blank" rel="noopener">Open source ↗</a>
+        ${["crit", "warn", "stale"].includes(s.state) ? `<button class="btn ack" id="p-ack">Acknowledge</button>` : ""}
+        ${s.state !== "ok" ? `<button class="btn" id="p-clear">Clear manually</button>` : ""}
+      </div>
+    </div>
+    <div class="p-body">
+      <dl class="facts">
+        <dt>Signal</dt><dd>${s.via} · ${s.src}</dd>
+        <dt>Last heard</dt><dd>${fmtStamp(s.lastSeen)} (${seenText(s)})</dd>
+        <dt>In state since</dt><dd>${fmtStamp(s.since)}</dd>
+        ${open ? `<dt>Incident</dt><dd>open ${fmtDur(Date.now() - open.start)}${s.state === "ack" ? ` · ack by ${s.ackBy || "you"}` : ""}</dd>` : ""}
+        ${s.peak && Date.now() - s.peak.at < PEAK_HOLD && s.state === "ok" ? `<dt>Peak hold</dt><dd>${STATES[s.peak.state].label.toLowerCase()} for ${fmtDur(s.peak.dur)}, cleared ${fmtStamp(s.peak.at)}</dd>` : ""}
+      </dl>
+      <div><h4 class="p-sub">History · 4 weeks, newest at right</h4>${histHTML(s, "wide")}</div>
+      <div><h4 class="p-sub">Signal log</h4><ol class="log">${s.log.slice(0, 40).map(e => `<li data-state="${e.state}"><time>${fmtStamp(e.t)}</time><span class="glyph">${STATES[e.state].glyph}</span><span class="m">${esc(e.m)}<span class="o">${esc(e.o)}</span></span></li>`).join("")}</ol></div>
+    </div>`;
+  document.getElementById("p-close").onclick = closePanel;
+  const ack = document.getElementById("p-ack"); if (ack) ack.onclick = () => { s.ackBy = "you"; apply(s.id, "ack", `Acknowledged by you · ${s.msg}`, "Mission Control"); };
+  const clr = document.getElementById("p-clear"); if (clr) clr.onclick = () => apply(s.id, "ok", "Cleared manually", "Mission Control");
+}
+function openPanel(id) {
+  openId = id; renderPanel();
+  document.getElementById("panel").hidden = false; document.getElementById("scrim").hidden = false;
+  document.getElementById("p-close").focus();
+}
+function closePanel() {
+  const id = openId; openId = null;
+  document.getElementById("panel").hidden = true; document.getElementById("scrim").hidden = true;
+  document.querySelector(`#main [data-id="${id}"]`)?.focus();
+}
+
+// --- events
+document.getElementById("main").addEventListener("click", e => {
+  if (e.target.closest("[data-stop]")) return;
+  const el = e.target.closest("[data-id]"); if (el) openPanel(el.dataset.id);
+});
+document.getElementById("main").addEventListener("keydown", e => {
+  const el = e.target.closest("[data-id]"); if (el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openPanel(el.dataset.id); }
+});
+document.getElementById("scrim").onclick = closePanel;
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && openId) closePanel();
+  if (e.target.closest("input,textarea")) return;
+  if (e.key === "1") setView("cards"); if (e.key === "2") setView("list"); if (e.key === "3") setView("board");
+  if ((e.key === "f" || e.key === "F") && view === "board") document.documentElement.requestFullscreen?.().catch(() => {});
+});
+let wake = null;
+function setView(v) {
+  view = v;
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === v)));
+  document.body.classList.toggle("board", v === "board");
+  try { localStorage.setItem("imc.view", v); } catch {}
+  if (v === "board" && navigator.wakeLock && !wake) navigator.wakeLock.request("screen").then(w => { wake = w; w.addEventListener("release", () => wake = null); }).catch(() => {});
+  render();
+}
+document.querySelectorAll(".seg button").forEach(b => b.onclick = () => setView(b.dataset.view));
+document.getElementById("t-focus").onclick = e => { autoFocus = !autoFocus; e.currentTarget.setAttribute("aria-pressed", String(autoFocus)); render(); };
+document.getElementById("t-demo").onclick = e => { demo = !demo; e.currentTarget.setAttribute("aria-pressed", String(demo)); };
+document.getElementById("b-step").onclick = nextEvent;
+
+function nextEvent() {
+  if (step >= SCRIPT.length) { checks = seedChecks(); step = 0; changes.length = 0; render(); return; }
+  apply(...SCRIPT[step++]);
+}
+
+document.getElementById("legend").innerHTML = ORDER.map(k => `<span data-state="${k}"><i>${STATES[k].glyph}</i>${STATES[k].label}</span>`).join("")
+  + `<span><i style="color:var(--crit)">◆</i>PEAK: recently cleared, fades over 30m</span>`;
+
+// --- clocks: text every second, buckets every minute, demo every 12s
+function tick() {
+  const now = Date.now();
+  document.getElementById("clock").textContent = new Date(now).toLocaleTimeString([], { hour12: false }) + " · " + new Date(now).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  document.querySelectorAll("[data-since]").forEach(el => { const t = fmtDur(now - +el.dataset.since); el.textContent = el.closest(".row") ? `for ${t}` : t; });
+  document.querySelectorAll("[data-ago]").forEach(el => el.textContent = fmtDur(now - +el.dataset.ago));
+  for (const s of checks) if (s.interval && s.state !== "stale" && now - s.lastSeen > s.interval) s.lastSeen = now;
+}
+setInterval(tick, 1000);
+setInterval(render, MIN);
+setInterval(() => { if (demo && !openId) nextEvent(); }, 12000);
+
+try { const v = localStorage.getItem("imc.view"); if (v && v !== "board") view = v; } catch {}
+const hashView = location.hash.slice(1); if (["cards", "list", "board"].includes(hashView)) view = hashView;
+tick(); setView(view);
+})();
+</script>
