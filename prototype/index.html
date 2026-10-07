@@ -148,13 +148,13 @@ button, a { color: inherit; font: inherit; }
 @keyframes flash { 0%{opacity:1} 14%{opacity:0} 28%{opacity:1} 42%{opacity:0} 56%{opacity:.8} 70%,100%{opacity:0} }
 
 .c-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; min-width: 0; }
-.card > .c-head, .tile > .t-head, .comp-card > .cc-head {
+.card > .c-head, .tile > .t-head, .comp-card > .cc-head, .mini > .mini-head {
   margin: calc(-1 * var(--py)) calc(-1 * var(--px)) 0; padding: 9px var(--px);
   border-radius: calc(var(--r) - 2px) calc(var(--r) - 2px) 0 0;
   background: color-mix(in srgb, var(--s) var(--band), transparent);
   color: color-mix(in srgb, var(--on) var(--band), var(--fg));
 }
-.card[data-state="ok"] > .c-head, .tile[data-state="ok"] > .t-head, .comp-card[data-state="ok"] > .cc-head, .comp-card[data-ign] > .cc-head { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
+.card[data-state="ok"] > .c-head, .tile[data-state="ok"] > .t-head, .comp-card[data-state="ok"] > .cc-head, .comp-card[data-ign] > .cc-head, .mini > .mini-head { background: color-mix(in srgb, var(--s) var(--band-ok), transparent); }
 .card.parked > .c-head, .tile.parked > .t-head { background: transparent; color: var(--fg); }
 .mono { width: 34px; height: 34px; border-radius: 7px; display: grid; place-items: center; background: var(--brand); color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 13px; letter-spacing: .02em; flex: none; }
 .c-title { min-width: 0; }
@@ -367,6 +367,27 @@ body.mode-live .demo-only, body.mode-public .demo-only, body.mode-public #b-allo
 .empty { color: var(--dim); padding: 24px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r); }
 @media (max-width: 900px) { .inc-item { grid-template-columns: 1fr auto; } .inc-item .when:first-of-type { display: none; } }
 
+/* quiet services shrink: quarter cards and a logo tray; attention always returns full size */
+.mini-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); }
+.grid + .mini-grid { margin-top: 12px; }
+.mini { --py: 7px; --px: 10px; position: relative; background: var(--panel); border: 2px solid color-mix(in srgb, var(--ok) 30%, transparent); border-radius: var(--r);
+  padding: var(--py) var(--px); display: grid; gap: 6px; cursor: pointer; min-width: 0; }
+.mini:hover { background: var(--panel-2); }
+.mini-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.mini-head .mono { width: 22px; height: 22px; border-radius: 5px; font-size: 10px; }
+.mini-head b { font-family: var(--f-display); font-weight: 600; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini .cells { height: 6px; }
+.mini .zlabel { display: none !important; }
+.mini-foot { display: flex; justify-content: space-between; gap: 6px; font-family: var(--f-data); font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tray { display: flex; flex-wrap: wrap; gap: 8px; }
+.logo-chip { background: var(--panel); border: 2px solid color-mix(in srgb, var(--s) 35%, transparent); border-radius: 9px; padding: 3px; cursor: pointer; line-height: 0; }
+.logo-chip .mono { width: 30px; height: 30px; border-radius: 6px; font-size: 11px; }
+.logo-chip:hover { border-color: var(--s); }
+.demo-tag { display: inline-block; margin-left: 7px; padding: 0 4px; border: 1px dashed currentColor; border-radius: 3px; font-family: var(--f-data); font-size: 10px; font-weight: 500;
+  letter-spacing: .04em; text-transform: lowercase; opacity: .7; vertical-align: 2px; }
+.size-pick { display: grid; gap: 6px; }
+.size-pick .seg button { padding: 5px 10px; font-size: 12px; }
+
 /* platforms: parts strip on cards, platform page, part cards */
 .comp-strip { display: flex; align-items: center; gap: 3px; min-width: 0; }
 .cled { width: 9px; height: 9px; border-radius: 2px; background: var(--s); flex: none; }
@@ -426,6 +447,7 @@ select { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
       <button class="toggle" id="t-focus" aria-pressed="true" title="Bring issues to the top"><span class="dot"></span>Auto-focus</button>
       <button class="toggle demo-only" id="t-demo" aria-pressed="true" title="Play scripted status changes"><span class="dot"></span>Demo feed</button>
       <button class="toggle demo-only" id="b-step" aria-pressed="false" title="Apply the next scripted change now">Next event ›</button>
+      <button class="toggle" id="t-density" title="Auto: roomy with few services; quiet ones shrink to small cards after 7 days; more services, smaller sooner">Size · Auto</button>
       <button class="toggle" id="t-theme" title="Switch between automatic, light and dark">Theme · Auto</button>
       <button class="toggle" id="b-allow" aria-expanded="false" aria-controls="allow" title="Give a TV or shared screen read-only access"><span class="dot"></span>Allow a board</button>
       <div class="popover" id="allow" hidden></div>
@@ -493,7 +515,7 @@ function seedChecks() {
 
     { id: "jamf", name: "Jamf Pro", group: "Our platforms", mono: "J", brand: "#3f4a59", src: "api 1h", via: "Jamf Pro API", url: "https://example.jamfcloud.com/",
       state: "ok", since: ago(26 * DAY), msg: "Health check OK · 1,284 devices checked in within 24h", inc: [[26 * DAY, 20 * MIN, "crit"]] },
-    { id: "ninja", name: "NinjaOne", group: "Our platforms", mono: "N1", brand: "#1c6b4a", src: "api 1h", via: "NinjaOne API", url: "https://app.ninjarmm.com/",
+    { id: "ninja", name: "NinjaOne", group: "Our platforms", size: "logo", mono: "N1", brand: "#1c6b4a", src: "api 1h", via: "NinjaOne API", url: "https://app.ninjarmm.com/",
       state: "ok", since: ago(15 * DAY), msg: "API reachable · 3 open device alerts", inc: [[15 * DAY, 45 * MIN, "warn"]] },
     { id: "front", name: "Front · IT queue", group: "Our platforms", mono: "F", brand: "#a23ce0", src: "api 1h", via: "Front API snapshot", url: "https://app.frontapp.com/",
       state: "warn", since: ago(41 * MIN), msg: "3 conversations past SLA · 17 open · oldest 6h 10m", openState: "warn",
@@ -931,7 +953,7 @@ function cardHTML(s) {
     ${pk.notch || ""}
     <div class="c-head">
       <span class="mono" style="--brand:${s.brand}">${s.mono}</span>
-      <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">${s.group} · ${srcLabel(s)}</span></div>
+      <div class="c-title"><h3>${esc(s.name)}${demoTag(s)}</h3><span class="c-sub">${s.group} · ${srcLabel(s)}</span></div>
       ${pk.tag || ""}
     </div>
     <div class="c-state">${stateHTML(s)}${durHTML(s)}</div>
@@ -945,7 +967,7 @@ function rowHTML(s) {
   const st = STATES[s.state];
   return `<div class="row${s.parked ? " parked" : ""}" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${s.parked ? "parked, " : ""}${st.label}">
     ${peakHTML(s, "row")}
-    <span class="namepill"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}</b></span>
+    <span class="namepill"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}${demoTag(s)}</b></span>
     <span class="st"><span>${stateHTML(s)}</span>${durHTML(s, true)}</span>
     <span class="msg" title="${esc(s.parked ? s.parked.reason : s.msg)}">${esc(s.parked ? s.parked.reason : s.msg)}</span>
     ${histHTML(s, "wide")}
@@ -955,7 +977,7 @@ function rowHTML(s) {
 function tileHTML(s) {
   const st = STATES[s.state];
   return `<div class="tile${s.parked ? " parked" : ""}" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${s.parked ? "parked, " : ""}${st.label}">
-    <div class="t-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}</b>${s.parked ? `<span class="parked-tag">PARKED</span>` : ""}${peakHTML(s, "row") || `<span class="glyph">${st.glyph}</span>`}</div>
+    <div class="t-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}${demoTag(s)}</b>${s.parked ? `<span class="parked-tag">PARKED</span>` : ""}${peakHTML(s, "row") || `<span class="glyph">${st.glyph}</span>`}</div>
     ${histHTML(s, "tile")}
   </div>`;
 }
@@ -967,6 +989,44 @@ function section(title, count, body) {
   return `<section class="section"><h2 class="section-h"><b>${title}</b>${count != null ? `<span>${count}</span>` : ""}<span class="rule"></span></h2>${body}</section>`;
 }
 
+// ---------- card sizes: attention gets room, quiet services get out of the way ----------
+const QUIET_AFTER = 7 * DAY;
+const DENSITIES = ["auto", "roomy", "dense"];
+let density = "auto";
+const demoTag = s => (MODE === "demo" || s.demo) ? `<span class="demo-tag" title="Sample data, not a real service">demo</span>` : "";
+/** How long a check has been quiet. Auto density: few services stay big; many shrink sooner. */
+function quietThreshold() {
+  const mode = density === "auto" ? (checks.length <= 8 ? "roomy" : checks.length > 30 ? "dense-ish" : "normal") : density;
+  return mode === "roomy" ? Infinity : mode === "dense" ? 0 : mode === "dense-ish" ? DAY : QUIET_AFTER;
+}
+const quietFor = s => s.state === "ok" && !s.parked ? Date.now() - s.since : 0;
+const peakActive = s => !!s.peak && s.state === "ok" && Date.now() - s.peak.at < PEAK_HOLD;
+function cardSize(s) {
+  if (needsEye(s) || (s.state === "maint" && !s.parked) || peakActive(s)) return "full"; // attention always wins
+  const pref = s.size || "auto";
+  if (pref !== "auto") return pref;
+  return s.state === "ok" && quietFor(s) >= quietThreshold() ? "compact" : "full";
+}
+function uptime(s, win = 28 * DAY) {
+  const now = Date.now(), from = Math.max(s.monitoredFrom || now - win, now - win);
+  let down = 0;
+  for (const i of s.incidents) {
+    if (!["crit", "warn", "stale", "ack"].includes(i.state)) continue;
+    const a = Math.max(i.start, from), b = Math.min(i.end ?? now, now);
+    if (b > a) down += b - a;
+  }
+  const pct = 100 * (1 - down / Math.max(1, now - from));
+  return pct >= 99.995 ? "100%" : `${pct.toFixed(pct >= 99 ? 2 : 1)}%`;
+}
+function miniHTML(s) {
+  return `<article class="mini" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: operational for ${fmtDur(quietFor(s))}">
+    <div class="mini-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}${demoTag(s)}</b></div>
+    ${histHTML(s, "tile")}
+    <div class="mini-foot"><span title="Operational without a break">up ${fmtDur(quietFor(s)).split(" ")[0]}</span><span title="Uptime over the last 28 days">${uptime(s)}</span></div>
+  </article>`;
+}
+const logoHTML = s => `<button class="logo-chip" data-id="${s.id}" data-state="${s.state}" title="${esc(s.name)}${(MODE === "demo" || s.demo) ? " (demo)" : ""}: ${STATES[s.state].label.toLowerCase()} · minimized" aria-label="${esc(s.name)}: ${STATES[s.state].label}, minimized"><span class="mono" style="--brand:${s.brand}">${s.mono}</span></button>`;
+
 function renderCards() {
   if (!autoFocus) return GROUPS.map(g => { const l = checks.filter(c => c.group === g); return section(g, l.length, `<div class="grid">${l.map(cardHTML).join("")}</div>`); }).join("");
   const attn = checks.filter(needsEye).sort(bySeverity);
@@ -975,12 +1035,18 @@ function renderCards() {
   let h = "";
   if (attn.length) h += section("Needs attention", attn.length, `<div class="grid">${attn.map(cardHTML).join("")}</div>`);
   if (planned.length) h += section("Planned", planned.length, `<div class="grid">${planned.map(cardHTML).join("")}</div>`);
+  const logos = [];
   for (const g of GROUPS) {
-    const l = checks.filter(c => c.group === g && calm(c)).sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0));
-    if (l.length) h += section(g, `${l.length} operational`, `<div class="grid">${l.map(cardHTML).join("")}</div>`);
+    const l = checks.filter(c => c.group === g && calm(c)).sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || a.since - b.since);
+    const full = l.filter(c => cardSize(c) === "full"), mini = l.filter(c => cardSize(c) === "compact");
+    logos.push(...l.filter(c => cardSize(c) === "logo"));
+    const shown = full.length + mini.length;
+    if (shown) h += section(g, `${l.length} operational${mini.length ? ` · ${mini.length} quiet` : ""}`,
+      (full.length ? `<div class="grid">${full.map(cardHTML).join("")}</div>` : "") + (mini.length ? `<div class="mini-grid">${mini.map(miniHTML).join("")}</div>` : ""));
   }
   const parked = checks.filter(c => c.parked);
   if (parked.length) h += section("Parked", parked.length, `<div class="grid">${parked.map(cardHTML).join("")}</div>`);
+  if (logos.length) h += section("Minimized", logos.length, `<div class="tray">${logos.map(logoHTML).join("")}</div>`);
   return h;
 }
 function renderList() {
@@ -996,8 +1062,11 @@ function renderBoard() {
     ? `<div class="board-attn">${attn.map(cardHTML).join("")}</div>`
     : `<div class="all-clear">ALL SYSTEMS OPERATIONAL</div>`;
   h = section(attn.length ? "Attention" : "Status", attn.length || null, h);
-  h += section("Operational", calm.length, `<div class="board-calm">${calm.sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group)).map(tileHTML).join("")}</div>`);
-  if (parked.length) h += section("Parked", parked.length, `<div class="board-calm">${parked.map(tileHTML).join("")}</div>`);
+  const logos = calm.filter(c => cardSize(c) === "logo"), tiles = calm.filter(c => cardSize(c) !== "logo");
+  h += section("Operational", calm.length, `<div class="board-calm">${tiles.sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group)).map(tileHTML).join("")}</div>`);
+  // Parked and minimized share one row on the TV: both are deliberately out of the way.
+  if (parked.length || logos.length) h += section([parked.length && "Parked", logos.length && "Minimized"].filter(Boolean).join(" · "), null,
+    `<div class="board-calm">${parked.map(tileHTML).join("")}${logos.length ? `<div class="tray" style="align-content:center">${logos.map(logoHTML).join("")}</div>` : ""}</div>`);
   const tk = changes.length ? changes : [];
   h += `<div class="ticker" aria-label="Recent changes">${tk.length ? tk.map(c => `<span class="tk" data-state="${c.to}">${fmtClock(c.t)} ${esc(c.name)} <i>${STATES[c.to].glyph} ${STATES[c.to].short}</i>${c.to === "ok" ? ` after ${fmtDur(c.dur)}` : ""}</span>`).join("") : `<span class="tk">No changes since this screen loaded.</span>`}</div>`;
   return h;
@@ -1043,7 +1112,7 @@ function renderPanel() {
     <div class="p-head">
       <div class="c-head">
         <span class="mono" style="--brand:${s.brand}">${s.mono}</span>
-        <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">${s.group}</span></div>
+        <div class="c-title"><h3>${esc(s.name)}${demoTag(s)}</h3><span class="c-sub">${s.group}</span></div>
         <button class="p-close" id="p-close" aria-label="Close details">×</button>
       </div>
       <div class="c-state" data-state="${s.state}"><span class="glyph">${st.glyph}</span>${st.label}<span class="dur" data-since="${s.since}">${fmtDur(Date.now() - s.since)}</span></div>
@@ -1075,6 +1144,10 @@ function renderPanel() {
         ${s.parked ? `<dt>Parked</dt><dd>by ${esc(s.parked.by)} ${fmtStamp(s.parked.at)}, until ${esc(s.parked.until)}: ${esc(s.parked.reason)}</dd>` : ""}
         ${s.peak && Date.now() - s.peak.at < PEAK_HOLD && s.state === "ok" ? `<dt>Peak hold</dt><dd>${STATES[s.peak.state].label.toLowerCase()} for ${fmtDur(s.peak.dur)}, cleared ${fmtStamp(s.peak.at)}</dd>` : ""}
       </dl>
+      ${canOperate() && MODE !== "public" && !kiosk ? `<div class="size-pick"><h4 class="p-sub" style="margin:0">Card size</h4>
+        <div class="seg" role="group" aria-label="Card size">${[["auto", "Auto"], ["full", "Full"], ["compact", "Small"], ["logo", "Logo only"]].map(([v, l]) =>
+          `<button data-size="${v}" aria-pressed="${(s.size || "auto") === v}">${l}</button>`).join("")}</div>
+        <p class="small">${{ auto: `Full while it needs attention; small after ${fmtDur(QUIET_AFTER).split(" ")[0]} without trouble.`, full: "Always full size.", compact: "Small card unless it needs attention.", logo: "Just the logo, in the Minimized tray. Comes back full size when it needs attention." }[s.size || "auto"]} Applies for everyone.</p></div>` : ""}
       <div id="p-incidents"><h4 class="p-sub">Incidents</h4><p class="small">Loading…</p></div>
       <div><h4 class="p-sub">History · 4 weeks, newest at right</h4>${histHTML(s, "wide")}</div>
       <div><h4 class="p-sub">Signal log</h4><ol class="log">${s.log.slice(0, 40).map(e => `<li data-state="${e.state}"><time>${fmtStamp(e.t)}</time><span class="glyph">${STATES[e.state].glyph}</span><span class="m">${esc(e.m)}<span class="o">${esc(e.o)}</span></span></li>`).join("")}</ol></div>
@@ -1090,6 +1163,12 @@ function renderPanel() {
   if ($("p-unpark")) $("p-unpark").onclick = () => act.unpark(s);
   if ($("p-poll")) $("p-poll").onclick = () => act.poll(s);
   if ($("p-report")) $("p-report").onclick = () => openReport(s);
+  p.querySelectorAll("[data-size]").forEach(b => b.onclick = async () => {
+    const size = b.dataset.size;
+    if (MODE === "live") { try { await api(`checks/${s.id}/display`, { method: "PUT", body: { size } }); await loadLive(); } catch (e) { return toast(e.message); } }
+    else { s.size = size; render(); }
+    toast(size === "logo" ? `${s.name} minimized to its logo. It returns full size if it needs attention.` : `${s.name}: ${b.textContent.toLowerCase()} size.`);
+  });
   if ($("p-plat")) $("p-plat").onclick = () => { closePanel(); openPlatform(s.id); };
   if ($("p-park")) $("p-park").onclick = e => { const f = $("park-form"); f.hidden = !f.hidden; e.currentTarget.setAttribute("aria-expanded", String(!f.hidden)); if (!f.hidden) $("park-reason").focus(); };
   if ($("park-form")) $("park-form").onsubmit = e => {
@@ -1290,7 +1369,7 @@ function renderPlatform() {
     <div class="plat-top"><button class="linkbtn" id="plat-back">← All services</button></div>
     <article class="card plat-head" data-state="${s.state}">
       <div class="c-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span>
-        <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">Platform · ${cs.length} parts · ${s.src}</span></div></div>
+        <div class="c-title"><h3>${esc(s.name)}${demoTag(s)}</h3><span class="c-sub">Platform · ${cs.length} parts · ${s.src}</span></div></div>
       <div class="c-state">${stateHTML(s)}${durHTML(s)}</div>
       <p class="c-msg">${esc(s.msg)}</p>
       ${histHTML(s, "wide")}
@@ -1592,6 +1671,13 @@ function setTheme(t) {
   try { localStorage.setItem("imc.theme", t); } catch {}
 }
 document.getElementById("t-theme").onclick = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % 3]);
+function setDensity(d) {
+  density = d;
+  document.getElementById("t-density").textContent = `Size · ${d[0].toUpperCase()}${d.slice(1)}`;
+  try { localStorage.setItem("imc.density", d); } catch {}
+}
+document.getElementById("t-density").onclick = () => { setDensity(DENSITIES[(DENSITIES.indexOf(density) + 1) % 3]); render(); };
+try { const d = localStorage.getItem("imc.density"); if (DENSITIES.includes(d)) setDensity(d); } catch {}
 try { const t = localStorage.getItem("imc.theme"); if (THEMES.includes(t)) setTheme(t); } catch {}
 updateAllowButton();
 

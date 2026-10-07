@@ -236,3 +236,14 @@ test("report, resolve and relevance over HTTP, with the right permissions", asyn
   const admin = await signIn("admin", "admin-password-123");
   assert.equal((await call("/api/checks/github/components/Actions", { method: "PUT", cookie: admin, body: { relevance: "ignore" } })).status, 200);
 });
+
+test("card size is shared and needs operate; demo connectors say so", async () => {
+  const tech = await signIn("tech", "tech-password-123");
+  assert.equal((await call("/api/checks/github/display", { method: "PUT", cookie: tech, body: { size: "logo" } })).status, 200);
+  assert.equal((await call("/api/checks/github/display", { method: "PUT", cookie: tech, body: { size: "huge" } })).status, 400);
+  const gh = (await call("/api/checks", { cookie: await signIn("admin", "admin-password-123") })).data.checks.find((c: any) => c.id === "github");
+  assert.equal(gh.size, "logo", "everyone sees the same size");
+  assert.equal(gh.demo, false);
+  const board = await call("/api/checks/github/display", { method: "PUT", body: { size: "full" } });
+  assert.notEqual(board.status, 200);
+});

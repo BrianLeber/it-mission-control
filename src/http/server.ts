@@ -124,6 +124,7 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
   route("POST", "/api/incidents/:id/track", c => { const i = incident(c.principal, c.params.id); engine.trackIssue(i.id, c.body?.on !== false, actor(c.principal)); return { ok: true }; }, "operate");
   route("POST", "/api/incidents/:id/archive", c => { const i = incident(c.principal, c.params.id); engine.archiveIssue(i.id, c.body?.on !== false, actor(c.principal)); return { ok: true }; }, "operate");
   route("POST", "/api/incidents/:id/resolve", c => { const i = incident(c.principal, c.params.id); engine.resolveIssue(i.id, actor(c.principal), c.body?.note ? String(c.body.note) : undefined); return { ok: true }; }, "operate");
+  route("PUT", "/api/checks/:id/display", c => { const conn = visible(c.principal, c.params.id); engine.setSize(conn.id, String(c.body?.size ?? ""), actor(c.principal)); return { ok: true }; }, "operate");
   // A person's own report: confirmed problems the vendor hasn't posted, or our own systems.
   route("POST", "/api/checks/:id/report", c => {
     const conn = visible(c.principal, c.params.id), b = c.body ?? {};

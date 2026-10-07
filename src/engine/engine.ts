@@ -123,6 +123,18 @@ export class Engine extends EventEmitter {
     });
   }
 
+  /** Card size: auto | full | compact | logo. Saved per check for everyone. */
+  size(checkId: string): string {
+    const r = this.db.prepare("SELECT size FROM check_display WHERE check_id = ?").get(checkId) as { size: string } | undefined;
+    return r?.size ?? this.connector(checkId)?.size ?? "auto";
+  }
+  setSize(checkId: string, size: string, by: string, now = Date.now()) {
+    if (!["auto", "full", "compact", "logo"].includes(size)) throw new UserError("Size must be auto, full, compact or logo");
+    this.db.prepare(`INSERT INTO check_display (check_id, size, by, at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(check_id) DO UPDATE SET size = excluded.size, by = excluded.by, at = excluded.at`).run(checkId, size, by, now);
+    this.emit("event", { type: "updated", checkId } satisfies EngineEvent);
+  }
+
   /** A person reports what no source shows, e.g. "Sway isn't saving changes" with no Microsoft alert. */
   reportIssue(checkId: string, input: { state: IssueState; title: string; detail?: string; component?: string; ref?: string }, by: string, now = Date.now()): number {
     if (!this.connector(checkId)) throw new UserError("No such check");

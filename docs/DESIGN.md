@@ -51,6 +51,20 @@ key suppressed); park (known and deferred); snooze (time-boxed); **parts marked 
 but still recorded. Suppressed never means deleted: everything stays answerable in
 retrospect.
 
+### Two lanes, and a sister product
+
+- **Status** (this board): is it working? Red, yellow, green, with incidents.
+- **Workload** (next): what's open and outstanding? Front tickets, Jamf and NinjaOne device
+  issues. These are queues, not health. They show **counts, age and trend** (e.g. 17 open,
+  3 past SLA, oldest 6h) and only turn into a status when a threshold is crossed. They get
+  their own section with their own card style, so a busy queue doesn't read as an outage.
+  The JSON driver's rules already cover the threshold part.
+- **Insights** (sister product, same data): metrics and reporting. Availability per service
+  and part, time to resolve, incident counts and trends, the noise ledger, and workload
+  trends. Read-only, its own page, built on the stored incident records and history. It's
+  deliberately lighter than a full BI tool: a fixed set of answers to the four questions
+  "for analysis", not a query builder.
+
 ### Gaps against the North Star (next work, in priority order)
 
 1. **"Do we need to take action?" is implicit.** Color says how bad, not whose move it is.
@@ -238,6 +252,25 @@ for 100+ checks.
 | **Board** | TV / NOC wall | Designed to fit **1920×1080** with no scrolling (verified for about 18 checks; past about 40 it needs group roll-ups). No controls to fiddle with. Attention items are big; healthy checks collapse to small tiles with a mini history. A "recent changes" ticker along the bottom answers "did that clear?" ("14:02 Slack ● OK after 9m"). Requests a screen wake lock; `F` toggles fullscreen. |
 | **Side panel** | Click any card or row | Current state, **Open source ↗**, snooze, false alarm, park, clear, check now, signal facts (source, interval, last heard), the check's **incidents** (open ones and recent closed), a full-width history strip, and the raw signal log. Clicking an incident shows its record and timeline in the same panel. |
 | **Log** | Follow-up, reporting | Every incident: open, tracked, archived or all, with search. Rows show state, vendor reference, title, service, when it was detected and how long it lasted. |
+
+**Card sizes (auto-focus):** attention gets room, and quiet services get out of the way.
+
+| Size | Shows | When |
+|---|---|---|
+| **Full** | Everything: logo, name, state, duration, message, parts strip, history, freshness | Anything that needs attention, is in maintenance, or is in its 30-minute peak hold. **Always**, whatever size was chosen. |
+| **Small** (about ¼ card) | Logo, name, small history strip, "up 11d", 28-day uptime % | Operational for **7 days straight** (auto), or chosen |
+| **Logo only** | The logo in a **Minimized** tray, with a status border | Chosen, to mostly hide a service and keep one-click access |
+
+The size is chosen per service in its panel (Auto · Full · Small · Logo only), saved on the
+server, and applies for everyone. The **Size** control in the header sets density for this
+screen:
+- **Auto:** 8 services or fewer stay full; up to 30, quiet services shrink after 7 days;
+  more than 30, after 1 day.
+- **Roomy:** never shrink automatically.
+- **Dense:** every operational service is small.
+
+Cards with sample data say **demo** after the name (a `demo: true` connector, and every
+card in the prototype), so nobody mistakes them for real.
 
 **Themes:** dark is the default and suits a TV. Light mode puts a **solid status banner
 behind each service name**, because thin colored borders wash out on white. Healthy checks

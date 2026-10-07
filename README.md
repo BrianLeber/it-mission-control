@@ -44,6 +44,7 @@ npm run cli -- poll connectors/templates/front-queue.yaml    # see what it would
 | | |
 |---|---|
 | **Incidents** | Each alert is a record with the vendor's reference (e.g. SP1489449), timeline and notes. Track an open one, and it's archived automatically when it closes; archive closed ones to keep them past 90 days. The **Log** view (key `4`) searches them all. |
+| **Card sizes** | Auto-focus gives attention full cards. Services quiet for 7 days shrink to small cards with uptime; *Logo only* tucks one into a tray. Anything that needs attention comes back full size. Density adapts to how many services you watch. |
 | **Platforms** | Microsoft 365, Google Workspace and similar get a page with a card per part. Mark parts you don't use (e.g. Teams) and their incidents stop lighting the board but are still recorded. |
 | **Reported issues** | *Report issue* adds what no source shows (e.g. Sway not saving, confirmed by IT). It counts until a person resolves it. |
 | **TV boards** | An admin chooses *Allow a board* and creates a one-time code; the TV opens `/pair`. Boards are read-only, last 30 days, and can be reauthorized without re-pairing. |

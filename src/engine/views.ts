@@ -25,6 +25,8 @@ export interface CheckView {
   issues: { id: number; ref: string | null; summary: string; state: string; openedAt: number; tracked: boolean; components: string[]; manual: boolean; ignored: boolean }[];
   /** Platforms only: one entry per part, with its own state from the open issues touching it. */
   platform: boolean;
+  demo: boolean;
+  size: string;
   components: { name: string; relevance: string; note?: string; state: string; open: number; summary: string | null }[];
   sensitivity?: string;
 }
@@ -73,6 +75,7 @@ export function visibleChecks(engine: Engine, p: Principal, opts: { includeSensi
       issues: engine.openIssues(c.id).map(i => ({ id: i.id, ref: i.ref ?? null, summary: i.summary, state: i.state, openedAt: i.opened_at, tracked: !!i.tracked_at,
         components: JSON.parse(i.components ?? "[]"), manual: !!i.manual, ignored: !!i.ignored })),
       platform: c.platform || c.components.length > 0,
+      demo: c.demo, size: engine.size(c.id),
       components: c.platform || c.components.length ? componentStates(engine, c.id) : [],
       ...(opts.includeSensitivity ? { sensitivity: c.sensitivity } : {}),
     });

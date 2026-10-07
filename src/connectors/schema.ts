@@ -32,6 +32,10 @@ export const ConnectorSchema = z.object({
   /** NO SIGNAL after this many intervals without a good reading. */
   grace: z.number().min(1).max(20).default(2),
   options: z.record(z.string(), z.unknown()).default({}),
+  /** Sample or test data: the card says "demo" after the name so nobody mistakes it for real. */
+  demo: z.boolean().default(false),
+  /** Card size. auto: full while it needs attention, compact once quiet for a while. logo: mostly hidden. */
+  size: z.enum(["auto", "full", "compact", "logo"]).default("auto"),
   /** A broad service with parts (Microsoft 365, Google Workspace): gets its own page with a card per component. */
   platform: z.boolean().default(false),
   /** Known parts and how much we care. Parts seen in incidents but not listed here are added automatically. */

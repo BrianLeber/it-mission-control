@@ -186,6 +186,15 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (check_id, component)
   );
   `,
+  `
+  -- Card size chosen in the UI (overrides the connector file's default).
+  CREATE TABLE check_display (
+    check_id TEXT PRIMARY KEY REFERENCES checks(id) ON DELETE CASCADE,
+    size TEXT NOT NULL,
+    by TEXT,
+    at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export function openDb(path: string): DB {
