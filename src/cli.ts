@@ -7,6 +7,7 @@ import { loadConnectorDir, parseConnectorYaml } from "./connectors/registry.ts";
 import { createApiToken, createUser } from "./access/identity.ts";
 import { isLevel, isRole, type Principal } from "./access/policy.ts";
 import { worst } from "./model.ts";
+import { wrapUi } from "./http/server.ts";
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flag = (name: string) => { const i = rest.indexOf(`--${name}`); return i >= 0 ? rest[i + 1] : undefined; };
@@ -72,7 +73,9 @@ async function main() {
       }));
       mkdirSync(dirname(out), { recursive: true });
       writeFileSync(out, JSON.stringify({ generated_at: Date.now(), checks }, null, 2));
-      console.log(`Wrote ${checks.length} checks to ${out}`);
+      // The page that reads it: the same UI in public (read-only, browser-history) mode.
+      writeFileSync(join(dirname(out), "index.html"), wrapUi(readFileSync(config.uiFile, "utf8"), "public"));
+      console.log(`Wrote ${checks.length} checks to ${out} and the page to ${join(dirname(out), "index.html")}`);
       return;
     }
     case "user:add": {

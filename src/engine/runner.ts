@@ -58,13 +58,15 @@ export class Runner {
       if (r.ok) this.engine.observe(id, r.observation, origin);
       else {
         const msg = r.missing ? `waiting for credentials (${r.missing.join(", ")})` : r.error;
-        this.engine.fail(id, msg, origin);
+        // Missing credentials won't fix themselves on retry: show NO SIGNAL straight away.
+        this.engine.fail(id, msg, origin, Date.now(), { immediate: !!r.missing });
         log("warn", "poll failed", { check: id, error: msg });
       }
     } finally {
       this.running.delete(id);
       const st = this.engine.state(id);
-      const unhealthy = st && !["ok", "maint"].includes(st.state) && !st.parked;
+      // A failed poll retries at the fast interval too, so a blip is confirmed or cleared quickly.
+      const unhealthy = st && ((!["ok", "maint"].includes(st.state) && !st.parked) || st.fail_count > 0);
       const base = unhealthy ? c.fast_every : c.every;
       const jitter = base * (Math.random() * 0.1 - 0.05);
       this.engine.db.prepare("UPDATE check_state SET next_due = ? WHERE check_id = ?").run(Date.now() + base + jitter, id);

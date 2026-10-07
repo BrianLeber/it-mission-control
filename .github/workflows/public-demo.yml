@@ -1,0 +1,31 @@
+# Builds the public demo (a static, read-only status page for public connectors) and
+# publishes it to GitHub Pages. Enable Pages (Settings → Pages → Source: GitHub Actions),
+# then run it by hand, or uncomment the schedule to refresh it automatically.
+name: Public demo
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "*/15 * * * *"
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run cli -- snapshot --out site/status.json
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.deployment.outputs.page_url }}" }
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

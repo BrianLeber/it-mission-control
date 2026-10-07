@@ -119,6 +119,11 @@ for 100+ checks.
 | **Board** | TV / NOC wall | Designed to fit **1920×1080** with no scrolling (verified for about 18 checks; past about 40 it needs group roll-ups). No controls to fiddle with. Attention items are big; healthy checks collapse to small tiles with a mini history. A "recent changes" ticker along the bottom answers "did that clear?" ("14:02 Slack ● OK after 9m"). Requests a screen wake lock; `F` toggles fullscreen. |
 | **Side panel** | Click any card or row | Current state, **Open source ↗**, snooze, false alarm, park or clear, signal facts (source, interval, last heard), a full-width history strip, and the raw signal log. |
 
+**Themes:** dark is the default and suits a TV. Light mode puts a **solid status banner
+behind each service name**, because thin colored borders wash out on white. Healthy checks
+get only a faint tint, so trouble still stands out. Status text darkens in light mode to
+stay readable. Auto follows the OS; the header toggle overrides it per browser.
+
 **Header master meter:** one LED segment per check, sorted by severity, plus counts per
 state. It works like the master bus on a mixing desk: the whole estate in one glance,
 readable from across the room.
@@ -135,13 +140,22 @@ animates the moves so they read as movement rather than a jump. The production v
 
 A board shows status with no signed-in user and has read-only access:
 
-1. A signed-in admin chooses **Allow a board**, names it ("Lobby TV") and gets a short
-   one-time code (`5TM-9XX`, 10-minute expiry, no ambiguous characters).
-2. The TV or browser opens the board URL. Unpaired, it shows only a code entry screen with
-   no status data.
-3. A matching code swaps for a long-lived **device token** scoped to `board:read`. The board
-   can't snooze, park or clear anything.
-4. Admins see the paired boards with their last-seen times and can revoke each one.
+1. A signed-in admin chooses **Allow a board**, names it ("Lobby TV") and creates a
+   one-time code (`5TM-9XX`, 10-minute expiry, no ambiguous characters). The box has a ×
+   and closes on Escape, an outside click or a view change.
+2. The TV opens `/pair`. Unpaired, it shows only a code entry screen with no status data.
+3. A matching code is **spent on first use**. It becomes a **board token**, stored hashed
+   and valid for **30 days**, with the clearance chosen at pairing (capped at the admin's own,
+   and never `secret`). The admin's box closes on its own and says "Lobby TV paired. That
+   code no longer works." The board is read-only.
+4. **Expiry without re-pairing.** When a board's 30 days run out, the TV shows "Board access
+   expired" and nothing else. In the admin's list it reads "Expired Oct 4" with
+   **Reauthorize**. Reauthorizing extends the same token by 30 days, and the TV reconnects
+   within a minute without anyone touching it. Boards within 7 days of expiry show "Expires
+   in 5 days" with Reauthorize too.
+5. The **Allow a board** button gets a yellow border when any board expires within 7 days,
+   and a red one when any has expired.
+6. Revoke removes a board immediately. Redeeming codes is rate-limited per address.
 
 Typing on a TV remote is clumsy, so we can add the reverse flow later: the TV shows the code
 and the admin types it on their laptop. The same token model supports both.
@@ -251,30 +265,146 @@ incident store, **not** from raw alerts, so it reports state and not noise:
 The model only summarizes facts we pass in as structured data. Every number in the digest
 comes from the database.
 
-### Stack (proposal, open to change)
+### Stack (as built)
 
-- **TypeScript end to end.** A small Node service (Fastify) for ingest, the incident
-  engine, the API and SSE, with a scheduler for pollers.
-- **SQLite** to start (one file, easy backups), with a clean path to Postgres.
-- **Front end**: a light framework (Svelte or Preact) built from the prototype's design
-  tokens. Live updates over Server-Sent Events.
-- **Deploy**: a single Docker container on an internal VM, behind SSO (Entra ID / Okta
-  OIDC). The TV board uses a read-only kiosk token.
-- **Config as code**: checks, rules and thresholds in a versioned YAML file, editable from
-  the UI later.
+- **Node 22 running TypeScript directly** (no build step). One process holds ingest, the
+  incident engine, the poller, the API, SSE and MCP. Dependencies are kept small: `yaml`,
+  `zod` and the MCP SDK.
+- **SQLite** built into Node (`node:sqlite`): one file and easy backups, with a clean path to
+  Postgres when needed.
+- **Front end**: the prototype page itself. The server injects a mode flag and the page
+  switches from demo data to the live API and SSE. A framework can come later if the UI
+  outgrows one file.
+- **Deploy**: a single container or VM. Put it behind HTTPS (`IMC_PUBLIC_URL=https://…`
+  turns on Secure cookies). Username and password for now; SSO (OIDC) slots in beside it
+  later.
+- **Config as code**: connectors are YAML in `connectors/`. Custom connectors and AI drafts
+  live in the database.
 
-## 6. Roadmap
+Code map: `src/connectors` (schema, drivers, safe fetch), `src/engine` (incident engine,
+poller, per-viewer views), `src/access` (policy, identity), `src/secrets` (vault),
+`src/http` (API, SSE, UI), `src/mcp` (assistant tools), `src/cli.ts`.
+
+## 6. Connectors: out of the box, customizable, AI-assisted
+
+A connector is one YAML file: what to watch, which **driver** reads it, how often, and who
+may see it. Nine drivers cover most needs without code: Statuspage, Slack, Google incident
+feeds, Microsoft Graph service health, RSS/Atom, rule-based JSON, HTTP, heartbeats and
+webhooks. See [`connectors/README.md`](../connectors/README.md).
+
+- **Out of the box:** `connectors/public/` ships 15 public status feeds (GitHub, Zoom,
+  Slack, Google Workspace and Cloud, Atlassian, Cloudflare, Dropbox, Box, 1Password, Twilio,
+  Claude, Jamf Cloud, AWS). They run with no setup.
+- **Templates** for your own systems: Microsoft 365 tenant health (Graph), Jamf Pro health
+  check, Front queue snapshot, HTTP check, backup heartbeat, generic webhook.
+- **Growing it over time:** add a file by pull request. CI validates every file, and
+  `npm run cli -- poll <file>` shows what it would display. Organization-specific connectors
+  go in through the UI or a private folder, never the public repo.
+- **Self-checking:** a wrong URL, a changed API or a missing credential turns the card grey
+  (NO SIGNAL) with the reason. It never shows a false OK.
+
+### Credentials
+
+Connectors reference credentials as `${secret:name}`. Values are encrypted at rest
+(AES-256-GCM, with a key in `IMC_SECRET_KEY` or `data/secret.key`). People with credential
+rights can **set, replace and delete** them in the web UI, but nothing can **read one
+back**: not the API, not MCP, not the UI. The poller decrypts a value only for the request
+that needs it and scrubs it from any error text.
+
+### Building connectors with an AI assistant (MCP)
+
+`POST /mcp` is a Model Context Protocol endpoint, so any MCP-capable assistant (Claude or
+others) can help build connectors. An admin creates an **API token** with the
+`manage_connectors` scope, the same way they would allow a board, and gives it to the
+assistant.
+
+| Tool | Does |
+|---|---|
+| `list_drivers`, `describe_driver` | What can be read, the options schema, a full example |
+| `list_connectors`, `get_connector` | What exists (within the token's clearance) |
+| `validate_connector` | Schema check, plus any credentials it references that aren't set yet |
+| `test_connector` | One live poll with stored credentials; returns the state and issues it would show |
+| `save_connector_draft` | Saves it **disabled** |
+| `list_credentials`, `request_credential` | Names and whether each is set; creates an empty slot with a description |
+
+The split is deliberate: **the assistant composes, a person approves.** The assistant
+never sees a credential value and can't enable anything. A person pastes the credential
+into the slot the assistant requested, reviews the draft and enables it. Enabling turns
+the draft into a normal custom connector, and the audit log records who did each step.
+
+## 7. Access control
+
+There are two independent questions, and the server answers both where the data is read
+(API, live stream, MCP, digest), never only in the UI.
+
+**Role: what you can do**
+
+| Role | View | Snooze / park / false alarm | Connectors and credentials | Boards and tokens | Users | Instance settings |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Global admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (all instances) |
+| Instance admin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Dashboard admin | ✓ | ✓ | ✓ | ✓ | — | — |
+| Technician | ✓ | ✓ | — | — | — | — |
+| Viewer | ✓ | — | — | — | — | — |
+| Guest / board | ✓ | — | — | — | — | — |
+
+**Clearance: what exists for you.** Every connector has a sensitivity level, and every
+person, board and token has a clearance:
+
+`public` (anyone, even with no code, if the instance enables the public board) ·
+`guest` (paired boards, guests) · `viewer` (signed-in staff) · `sensitive` · `secret`
+
+On top of that, **selective access**: a connector can list `groups`, and then only members
+of at least one of those groups can see it, whatever their clearance.
+
+Rules that make "even knowing it exists is a risk" hold:
+
+- A check above your clearance is **absent**: no card, no LED, no count, no ticker line, no
+  live-stream event, no MCP listing. A hidden check and a missing one return the identical
+  404.
+- `secret` is never a default, not even for admins. It has to be granted explicitly, and
+  the grant is audited. Boards can never hold `secret`.
+- Nobody can grant a role or clearance higher than their own. API tokens are capped by
+  their issuer's **current** clearance, so demoting a person shrinks their tokens.
+- Sensitive and secret connector files stay out of the public repository; a file name can
+  be the leak.
+
+Sign-in is username and password: scrypt hashes, 7-day sessions stored hashed, throttling
+after repeated failures, and a CSRF header on every cookie-authenticated write. SSO (OIDC
+with Entra ID or Okta) is the next identity option and fits beside this. Instance and
+global roles are modelled now; running several instances from one deployment is reserved
+for later.
+
+## 8. Public demo (down-detector)
+
+A public, read-only page for the common SaaS services, useful as a live demo and as a
+down-detector anyone can open.
+
+- Browsers can't fetch most vendor status APIs directly, because of CORS. So a scheduled
+  job (`npm run cli -- snapshot`, run by the included GitHub Actions workflow) polls the
+  **public** connectors and publishes `status.json` with the page as a static site, for
+  example on GitHub Pages. That also keeps vendor traffic to one request per interval,
+  however many people visit.
+- The page runs in **public mode**: no sign-in, no actions, no boards. **History is kept in
+  the visitor's browser** (local storage, 7 days) and starts when they first open the page;
+  a notice says so. The strip shows "not monitored yet" before that, so it never pretends
+  to know more than it does.
+- Only connectors marked `public` are included. The demo build never touches an
+  instance's database or credentials.
+
+## 9. Roadmap
 
 | Phase | Scope |
 |---|---|
-| **0. Prototype** (this commit) | Visual language, states, history strip, three views, side panel, demo feed |
-| **1. Core + public SaaS** | Data model, incident engine (debounce, staleness, maintenance, adaptive polling), SSE, pollers for Slack, Zoom, M365, Okta, Google and GitHub, sign-in, board pairing, Board view on a real 1080p TV |
-| **2. Our platforms** | Jamf, NinjaOne (API and webhook), Front snapshots, vCenter, heartbeats. Snooze, park and false alarm |
+| **0. Prototype** ✅ | Visual language, states, history strip, three views, side panel, demo feed, light theme |
+| **1. Core + public SaaS** ✅ built, needs a real deployment | Incident engine (debounce, staleness, maintenance, adaptive polling), SSE, 15 public connectors, sign-in, roles and clearance, board pairing with expiry, credential vault, MCP authoring, public demo build |
+| **1b. Admin UI** | Screens for connectors (review drafts, edit YAML, test), credentials, users and groups, tokens, instance settings. The API for all of these exists now |
+| **2. Our platforms** | Jamf, NinjaOne (API and webhook), Front snapshots, vCenter, using the templates. Snooze, park and false alarm already work against the live engine |
 | **3. Slack + email** | Slack alert channels first, then email. Tier 0 rules, open and close on follow-up, needs-review queue |
 | **4. Smarts** | System 1 classifier, rule suggestions from false alarms, daily and weekly digest, auto-focus cooldown and pins, impact weighting |
 | **5. User side** (stretch) | Per-user views and filters, ack notes and handoff, notifications that link to the card instead of repeating the alert |
 
-## 7. Decisions and open questions
+## 10. Decisions and open questions
 
 **Decided**
 
@@ -287,6 +417,15 @@ comes from the database.
   push sources are event-driven. Tune during testing.
 - Target 1080p and web view. TVs pair through an admin-issued code and get no user account.
 - Noise controls: **False alarm** and **Park** (section 2).
+- Light theme uses status banners behind names.
+- Pairing codes are single-use; boards last 30 days and can be reauthorized without
+  re-pairing.
+- Connectors: OOTB public feeds in the repo, templates for your own systems, custom ones in
+  the UI, AI-assisted authoring over MCP where people hold the credentials and the enable
+  switch.
+- Access: six roles × five clearance levels, plus group-based selective access, enforced
+  server-side. Username and password now, SSO later.
+- Public demo: static snapshot plus browser-only history.
 
 **Still open**
 
@@ -294,5 +433,8 @@ comes from the database.
    hosts, or do we need direct checks? (TBD)
 2. **Snooze rules:** who can snooze, maximum length, and whether a note is required.
 3. **Classifier hosting:** can alert text go to a hosted model, or must it run locally?
-4. **Hosting and SSO:** where it runs and which identity provider to use.
+4. **Hosting:** where the instance runs (it needs to reach internal servers for HTTP checks).
+   SSO provider when we add it.
 5. **Sound:** should a new DOWN chime on the board?
+6. **Board clearance default:** boards default to `guest` (public and guest checks only).
+   Should the office wall boards see `viewer` checks such as Jamf and Front?

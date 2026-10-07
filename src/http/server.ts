@@ -239,8 +239,7 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
   });
 
   // ---------- server ----------
-  const uiHtml = () => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n` +
-    readFileSync(config.uiFile, "utf8") + "\n</html>";
+  const uiHtml = () => wrapUi(readFileSync(config.uiFile, "utf8"), "live");
 
   return createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://local");
@@ -315,6 +314,14 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
 }
 
 const STREAMING = Symbol("streaming");
+
+/** The prototype file is a page fragment (artifact format); this makes it a full document in a given mode. */
+export function wrapUi(fragment: string, mode: "live" | "public"): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>window.IMC_MODE = ${JSON.stringify(mode)};</script>
+${fragment}
+</html>`;
+}
 
 function send(res: ServerResponse, status: number, data: unknown) {
   if (res.headersSent) return;

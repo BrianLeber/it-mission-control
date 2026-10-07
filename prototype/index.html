@@ -324,6 +324,14 @@ body.kiosk .controls, body.kiosk .demo-note, body.board .legend, body.board .dem
 .paired .acts { display: flex; gap: 10px; flex: none; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 40; background: var(--panel); color: var(--fg); border: 1px solid var(--ok); border-radius: var(--r); padding: 10px 16px; font-size: 14px; box-shadow: 0 10px 30px rgb(0 0 0 / .35); max-width: calc(100vw - 32px); }
 
+.who { display: inline-flex; align-items: center; gap: 8px; font-family: var(--f-data); font-size: 12px; color: var(--dim); white-space: nowrap; }
+.who b { color: var(--fg); font-weight: 500; }
+.notice { margin: -8px 0 18px; padding: 8px 12px; border: 1px dashed var(--faint); border-radius: var(--r); font-size: 13px; color: var(--dim); }
+body.mode-live .demo-only, body.mode-public .demo-only, body.mode-public #b-allow, body.mode-live .demo-note, body.mode-public .demo-note { display: none; }
+.pair .field { text-align: left; }
+.pair .field input { font-family: var(--f-body); font-size: 16px; letter-spacing: 0; text-transform: none; text-align: left; padding: 9px 10px; }
+.pair .alt { font-size: 13px; color: var(--dim); margin: 0; }
+
 /* panel: snooze and park */
 .snooze { display: inline-flex; border: 1px solid var(--ack); border-radius: var(--r); overflow: hidden; }
 .snooze span { padding: 7px 10px; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--ack); }
@@ -344,7 +352,7 @@ body.kiosk .controls, body.kiosk .demo-note, body.board .legend, body.board .dem
 
 <div class="wrap">
   <header class="top">
-    <div class="brand"><h1>Mission Control</h1><span class="clock" id="clock">--:--:--</span><span class="kiosk-tag" id="kiosk-tag" hidden></span></div>
+    <div class="brand"><h1>Mission Control</h1><span class="clock" id="clock">--:--:--</span><span class="kiosk-tag" id="kiosk-tag" hidden></span><span class="who" id="who" hidden></span></div>
     <div class="meter" aria-label="All checks by state">
       <div class="leds" id="leds"></div>
       <div class="counts" id="counts"></div>
@@ -364,6 +372,7 @@ body.kiosk .controls, body.kiosk .demo-note, body.board .legend, body.board .dem
     </div>
   </header>
 
+  <p class="notice" id="notice" hidden></p>
   <main id="main"></main>
 
   <footer class="legend" id="legend"></footer>
@@ -389,7 +398,12 @@ const STATES = {
 };
 const ORDER = ["crit", "warn", "stale", "ack", "maint", "ok"];
 const PEAK_HOLD = 30 * MIN;
-const GROUPS = ["Public SaaS", "Our platforms", "Infrastructure"];
+const PREFERRED_GROUPS = ["Public SaaS", "Our platforms", "Infrastructure"];
+let GROUPS = [...PREFERRED_GROUPS];
+// demo: simulated data (the published prototype) · live: served by the Mission Control server ·
+// public: a static page reading status.json built by `npm run cli -- snapshot`
+const MODE = window.IMC_MODE || "demo";
+let session = null, perms = new Set();
 
 // --- seeded noise so histories look the same on every load
 function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -499,9 +513,9 @@ const SCRIPT = [
   ["okta", "ok", "Classifier: follow-up email \"Resolved: push delays\" closed it (0.94)", "Email · model classifier"],
 ];
 
-let checks = seedChecks();
+let checks = MODE === "demo" ? seedChecks() : [];
 let step = 0;
-let view = "cards", autoFocus = true, demo = true;
+let view = "cards", autoFocus = true, demo = MODE === "demo";
 let openId = null;
 const changes = []; // recent transitions for the board ticker
 
@@ -619,7 +633,7 @@ function cardHTML(s) {
     <div class="c-state">${stateHTML(s)}${durHTML(s)}</div>
     <p class="c-msg">${esc(s.parked ? s.parked.reason : s.msg)}</p>
     ${histHTML(s, "card")}
-    <div class="c-foot"><span>${seenText(s)}</span><a href="${s.url}" target="_blank" rel="noopener" data-stop>source ↗</a></div>
+    <div class="c-foot"><span>${seenText(s)}</span>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener" data-stop>source ↗</a>` : ""}</div>
   </article>`;
 }
 function rowHTML(s) {
@@ -696,6 +710,8 @@ function renderTop() {
 function render() {
   const main = document.getElementById("main");
   if (view === "pair") { if (!document.getElementById("pair-form")) renderPair(); return; }
+  if (view === "login") { if (!document.getElementById("login-form")) renderLogin(); return; }
+  if (view === "expired") { renderExpired(); return; }
   const before = new Map([...main.querySelectorAll("[data-id]")].map(el => [el.dataset.id, el.getBoundingClientRect()]));
   main.innerHTML = view === "cards" ? renderCards() : view === "list" ? renderList() : renderBoard();
   renderTop();
@@ -715,6 +731,9 @@ function render() {
 function renderPanel() {
   const s = checks.find(c => c.id === openId), p = document.getElementById("panel"), st = STATES[s.state];
   const open = s.incidents.find(i => i.end === null);
+  // An incident runs from the first span in its unbroken chain (e.g. degraded, then snoozed).
+  let openedAt = open?.start;
+  for (let prev = open && s.incidents.find(i => i.end === openedAt); prev; prev = s.incidents.find(i => i.end === openedAt)) openedAt = prev.start;
   p.dataset.state = s.state;
   p.innerHTML = `
     <div class="p-head">
@@ -726,26 +745,26 @@ function renderPanel() {
       <div class="c-state" data-state="${s.state}"><span class="glyph">${st.glyph}</span>${st.label}<span class="dur" data-since="${s.since}">${fmtDur(Date.now() - s.since)}</span></div>
       <div>${esc(s.msg)}</div>
       <div class="actions">
-        <a class="btn primary" href="${s.url}" target="_blank" rel="noopener">Open source ↗</a>
-        ${["crit", "warn", "stale"].includes(s.state) && !s.parked ? `<div class="snooze" role="group" aria-label="Snooze"><span>Snooze</span><button data-snz="15">15m</button><button data-snz="60">1h</button><button data-snz="240">4h</button></div>` : ""}
+        ${s.url ? `<a class="btn primary" href="${esc(s.url)}" target="_blank" rel="noopener">Open source ↗</a>` : ""}
+        ${!canOperate() ? "" : `${["crit", "warn", "stale"].includes(s.state) && !s.parked ? `<div class="snooze" role="group" aria-label="Snooze"><span>Snooze</span><button data-snz="15">15m</button><button data-snz="60">1h</button><button data-snz="240">4h</button></div>` : ""}
         ${s.state === "ack" && s.snooze ? `<button class="btn ack" id="p-wake">End snooze</button>` : ""}
         ${s.state !== "ok" && s.state !== "maint" ? `<button class="btn" id="p-false" title="Close this alert and record it as noise">False alarm</button>` : ""}
         ${s.state !== "ok" ? `<button class="btn" id="p-clear">Clear manually</button>` : ""}
-        ${s.parked ? `<button class="btn" id="p-unpark">Unpark</button>` : `<button class="btn" id="p-park" aria-expanded="false" aria-controls="park-form">Park…</button>`}
+        ${s.parked ? `<button class="btn" id="p-unpark">Unpark</button>` : `<button class="btn" id="p-park" aria-expanded="false" aria-controls="park-form">Park…</button>`}`}
       </div>
-      <form class="park-form" id="park-form" hidden>
+      ${!canOperate() ? "" : `<form class="park-form" id="park-form" hidden>
         <p class="small">Parked checks keep recording history but stop lighting the board. Use this for known issues that can wait.</p>
         <label class="field"><span>Why it can wait</span><input id="park-reason" placeholder="e.g. Flaps nightly, no user impact"></label>
         <label class="field"><span>Park until</span><select id="park-until"><option>Tomorrow</option><option>1 week</option><option>Dec 22 (winter break)</option><option>I unpark it</option></select></label>
         <div class="actions"><button class="btn primary" type="submit">Park check</button></div>
-      </form>
+      </form>`}
     </div>
     <div class="p-body">
       <dl class="facts">
         <dt>Signal</dt><dd>${s.via} · ${s.src}</dd>
         <dt>Last heard</dt><dd>${fmtStamp(s.lastSeen)} (${seenText(s)})</dd>
         <dt>In state since</dt><dd>${fmtStamp(s.since)}</dd>
-        ${open ? `<dt>Incident</dt><dd>open ${fmtDur(Date.now() - open.start)}</dd>` : ""}
+        ${open ? `<dt>Incident</dt><dd>open ${fmtDur(Date.now() - openedAt)}, since ${fmtStamp(openedAt)}</dd>` : ""}
         ${s.snooze ? `<dt>Snoozed</dt><dd>by ${esc(s.snooze.by)} until ${fmtClock(s.snooze.until)}${s.snooze.note ? ` · "${esc(s.snooze.note)}"` : ""}. Lights up again if it is still open then, or sooner if it gets worse.</dd>` : ""}
         ${s.parked ? `<dt>Parked</dt><dd>by ${esc(s.parked.by)} ${fmtStamp(s.parked.at)}, until ${esc(s.parked.until)}: ${esc(s.parked.reason)}</dd>` : ""}
         ${s.peak && Date.now() - s.peak.at < PEAK_HOLD && s.state === "ok" ? `<dt>Peak hold</dt><dd>${STATES[s.peak.state].label.toLowerCase()} for ${fmtDur(s.peak.dur)}, cleared ${fmtStamp(s.peak.at)}</dd>` : ""}
@@ -755,33 +774,66 @@ function renderPanel() {
     </div>`;
   document.getElementById("p-close").onclick = closePanel;
   const $ = id => document.getElementById(id);
-  p.querySelectorAll("[data-snz]").forEach(b => b.onclick = () => {
-    const mins = +b.dataset.snz, prior = s.state;
-    apply(s.id, "ack", `Snoozed ${b.textContent} by you`, "Mission Control");
-    s.snooze = { by: "you", until: Date.now() + mins * MIN, prior };
-    render();
-  });
-  if ($("p-wake")) $("p-wake").onclick = () => apply(s.id, s.snooze.prior, "Snooze ended by you", "Mission Control");
-  if ($("p-false")) $("p-false").onclick = () => {
-    // repaint the whole alert chain (e.g. degraded, then snoozed) as noise
-    for (let o = s.incidents.find(i => i.end === null); o; o = s.incidents.find(i => i.end === o.start)) o.state = "false";
-    apply(s.id, "ok", "Marked as a false alarm by you. Logged as feedback for the alert rules.", "Mission Control", { noPeak: true, logState: "false" });
-  };
-  if ($("p-clear")) $("p-clear").onclick = () => apply(s.id, "ok", "Cleared manually", "Mission Control");
-  if ($("p-unpark")) $("p-unpark").onclick = () => {
-    s.parked = null; s.log.unshift({ t: Date.now(), state: s.state, m: "Unparked by you", o: "Mission Control" });
-    s.flash = s.state === "crit" || s.state === "warn"; render();
-  };
+  const act = MODE === "live" ? liveAct : demoAct;
+  p.querySelectorAll("[data-snz]").forEach(b => b.onclick = () => act.snooze(s, +b.dataset.snz, b.textContent));
+  if ($("p-wake")) $("p-wake").onclick = () => act.endSnooze(s);
+  if ($("p-false")) $("p-false").onclick = () => act.falseAlarm(s);
+  if ($("p-clear")) $("p-clear").onclick = () => act.clear(s);
+  if ($("p-unpark")) $("p-unpark").onclick = () => act.unpark(s);
   if ($("p-park")) $("p-park").onclick = e => { const f = $("park-form"); f.hidden = !f.hidden; e.currentTarget.setAttribute("aria-expanded", String(!f.hidden)); if (!f.hidden) $("park-reason").focus(); };
   if ($("park-form")) $("park-form").onsubmit = e => {
     e.preventDefault();
-    const reason = $("park-reason").value.trim() || "No reason given", until = $("park-until").value.replace(/ \(.*\)$/, "").replace("I unpark it", "unparked");
+    act.park(s, $("park-reason").value.trim() || "No reason given", $("park-until").value);
+  };
+}
+const canOperate = () => MODE === "demo" || perms.has("operate");
+
+// Demo actions change local state; live actions go to the server, which pushes the result back.
+const demoAct = {
+  snooze(s, mins, label) {
+    const prior = s.state;
+    apply(s.id, "ack", `Snoozed ${label} by you`, "Mission Control");
+    s.snooze = { by: "you", until: Date.now() + mins * MIN, prior };
+    render();
+  },
+  endSnooze: s => apply(s.id, s.snooze.prior, "Snooze ended by you", "Mission Control"),
+  falseAlarm(s) {
+    // repaint the whole alert chain (e.g. degraded, then snoozed) as noise
+    for (let o = s.incidents.find(i => i.end === null); o; o = s.incidents.find(i => i.end === o.start)) o.state = "false";
+    apply(s.id, "ok", "Marked as a false alarm by you. Logged as feedback for the alert rules.", "Mission Control", { noPeak: true, logState: "false" });
+  },
+  clear: s => apply(s.id, "ok", "Cleared manually", "Mission Control"),
+  unpark(s) {
+    s.parked = null; s.log.unshift({ t: Date.now(), state: s.state, m: "Unparked by you", o: "Mission Control" });
+    s.flash = s.state === "crit" || s.state === "warn"; render();
+  },
+  park(s, reason, choice) {
+    const until = choice.replace(/ \(.*\)$/, "").replace("I unpark it", "unparked");
     s.parked = { by: "you", at: Date.now(), until, reason };
     if (s.state === "ack") s.snooze = null;
     s.log.unshift({ t: Date.now(), state: s.state, m: `Parked by you until ${until}: ${reason}`, o: "Mission Control" });
     render();
-  };
+  },
+};
+async function post(path, body) {
+  try { await api(path, { method: "POST", body }); await loadLive(); }
+  catch (e) { toast(e.message); }
 }
+function parkUntil(choice) {
+  const now = new Date();
+  if (choice.startsWith("Tomorrow")) return new Date(Date.now() + DAY).toISOString();
+  if (choice.startsWith("1 week")) return new Date(Date.now() + 7 * DAY).toISOString();
+  if (choice.startsWith("Dec 22")) { const d = new Date(now.getFullYear(), 11, 22); if (d < now) d.setFullYear(d.getFullYear() + 1); return d.toISOString(); }
+  return null;
+}
+const liveAct = {
+  snooze: (s, mins) => post(`checks/${s.id}/snooze`, { minutes: mins }),
+  endSnooze: s => post(`checks/${s.id}/end-snooze`),
+  falseAlarm: s => post(`checks/${s.id}/false-alarm`),
+  clear: s => post(`checks/${s.id}/clear`),
+  unpark: s => post(`checks/${s.id}/unpark`),
+  park: (s, reason, choice) => post(`checks/${s.id}/park`, { reason, until: parkUntil(choice) }),
+};
 function openPanel(id) {
   openId = id; renderPanel();
   document.getElementById("panel").hidden = false; document.getElementById("scrim").hidden = false;
@@ -816,10 +868,11 @@ function setView(v) {
   closeAllow();
   document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === v)));
   document.body.classList.toggle("board", v === "board");
-  document.body.classList.toggle("pairing", v === "pair");
-  if (v === "pair" && openId) closePanel();
-  if (v !== "pair" && document.getElementById("pair-form")) document.getElementById("main").innerHTML = "";
-  if (v !== "pair") try { localStorage.setItem("imc.view", v); } catch {}
+  const gate = ["pair", "login", "expired"].includes(v);
+  document.body.classList.toggle("pairing", gate);
+  if (gate && openId) closePanel();
+  if (!gate && document.querySelector("#pair-form, #login-form")) document.getElementById("main").innerHTML = "";
+  if (!gate) try { localStorage.setItem("imc.view", v); } catch {}
   if (v === "board" && navigator.wakeLock && !wake) navigator.wakeLock.request("screen").then(w => { wake = w; w.addEventListener("release", () => wake = null); }).catch(() => {});
   render();
 }
@@ -839,7 +892,7 @@ const paired = [
 const boardTone = b => b.expires <= Date.now() ? "crit" : b.expires - Date.now() <= EXPIRY_WARN ? "warn" : null;
 const fmtDate = t => new Date(t).toLocaleDateString([], { month: "short", day: "numeric" });
 function updateAllowButton() {
-  const tones = paired.map(boardTone);
+  const tones = boardList().map(boardTone);
   const tone = tones.includes("crit") ? "crit" : tones.includes("warn") ? "warn" : null;
   const b = document.getElementById("b-allow");
   if (tone) { b.dataset.tone = tone; b.dataset.state = tone; } else { delete b.dataset.tone; delete b.dataset.state; }
@@ -856,6 +909,12 @@ function toast(msg) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 5000);
 }
 let pairCode, pairExpires, pairName = "Conference room TV";
+let liveBoards = [], liveCode = null; // live mode: boards from the server, the one unspent code
+const boardList = () => MODE === "live" ? liveBoards.map(b => ({ id: b.id, name: b.name, at: b.paired_at, expires: b.expires_at })) : paired;
+async function loadBoards() {
+  if (MODE !== "live" || !perms.has("manage_boards")) return;
+  try { liveBoards = (await api("boards")).boards; updateAllowButton(); } catch (e) { toast(e.message); }
+}
 function newCode() {
   const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; let c = "";
   for (let i = 0; i < 6; i++) c += A[Math.floor(Math.random() * A.length)];
@@ -868,21 +927,37 @@ function renderAllow() {
   a.innerHTML = `
     <div class="pop-head"><h2 class="p-sub" style="margin:0">Allow a status board</h2><button class="p-close" id="allow-close" aria-label="Close">×</button></div>
     <label class="field"><span>Board name</span><input id="allow-name" value="${esc(pairName)}"></label>
-    <div class="code" id="allow-code">${pairCode}</div>
-    <p class="small">On the TV, open the board page and enter this code. It works once and expires in <b id="allow-exp">${mmss(pairExpires - Date.now())}</b>. The board stays connected for 30 days and can view status but can't snooze, park or clear anything.</p>
-    <div class="actions"><button class="btn" id="allow-new">New code</button><a class="btn primary" href="#pair">Open pairing page</a></div>
+    ${MODE === "live" && !liveCode ? `<p class="small">Create a one-time code, then type it on the screen you want to connect.</p>
+    <div class="actions"><button class="btn primary" id="allow-new">Create code</button></div>` : `
+    <div class="code" id="allow-code">${MODE === "live" ? liveCode.code : pairCode}</div>
+    <p class="small">On the TV, open ${MODE === "live" ? `<b>${esc(location.origin)}/pair</b>` : "the board page"} and enter this code. It works once and expires in <b id="allow-exp">${mmss(codeExpiry() - Date.now())}</b>. The board stays connected for 30 days and can view status but can't snooze, park or clear anything.</p>
+    <div class="actions"><button class="btn" id="allow-new">New code</button>${MODE === "live" ? "" : `<a class="btn primary" href="#pair">Open pairing page</a>`}</div>`}
     <h3 class="p-sub" style="margin:4px 0 0">Paired boards</h3>
-    <ul class="paired">${paired.map((b, i) => {
+    <ul class="paired">${boardList().map((b, i) => {
       const tone = boardTone(b);
       const when = tone === "crit" ? `Expired ${fmtDate(b.expires)}` : tone === "warn" ? `Expires in ${fmtDur(b.expires - Date.now()).split(" ")[0]} · ${fmtDate(b.expires)}` : `Paired ${fmtDate(b.at)} · expires ${fmtDate(b.expires)}`;
       return `<li${tone ? ` data-tone="${tone}" data-state="${tone}"` : ""}><span><b>${esc(b.name)}</b><span class="when">${when}</span></span><span class="acts">${tone ? `<button class="linkbtn" data-reauth="${i}">Reauthorize</button>` : ""}<button class="linkbtn" data-revoke="${i}">Revoke</button></span></li>`;
     }).join("") || `<li>None yet</li>`}</ul>`;
   document.getElementById("allow-name").oninput = e => pairName = e.target.value || "Status board";
-  document.getElementById("allow-new").onclick = () => { newCode(); renderAllow(); };
+  document.getElementById("allow-new").onclick = async () => {
+    if (MODE !== "live") { newCode(); renderAllow(); return; }
+    try { liveCode = await api("boards/codes", { method: "POST", body: { name: pairName } }); renderAllow(); } catch (e) { toast(e.message); }
+  };
   document.getElementById("allow-close").onclick = () => { closeAllow(); document.getElementById("b-allow").focus(); };
-  a.querySelectorAll("[data-revoke]").forEach(b => b.onclick = () => { const x = paired.splice(+b.dataset.revoke, 1)[0]; renderAllow(); updateAllowButton(); toast(`${x.name} revoked. It shows the pairing screen now.`); });
-  a.querySelectorAll("[data-reauth]").forEach(b => b.onclick = () => { const x = paired[+b.dataset.reauth]; x.expires = Date.now() + BOARD_TTL; renderAllow(); updateAllowButton(); toast(`${x.name} reauthorized until ${fmtDate(x.expires)}. No re-pairing needed.`); });
+  a.querySelectorAll("[data-revoke]").forEach(b => b.onclick = async () => {
+    const x = boardList()[+b.dataset.revoke];
+    if (MODE === "live") { try { await api(`boards/${x.id}`, { method: "DELETE" }); await loadBoards(); } catch (e) { return toast(e.message); } }
+    else paired.splice(+b.dataset.revoke, 1);
+    renderAllow(); updateAllowButton(); toast(`${x.name} revoked. It shows the pairing screen now.`);
+  });
+  a.querySelectorAll("[data-reauth]").forEach(b => b.onclick = async () => {
+    const x = boardList()[+b.dataset.reauth];
+    if (MODE === "live") { try { await api(`boards/${x.id}/reauthorize`, { method: "POST" }); await loadBoards(); } catch (e) { return toast(e.message); } }
+    else x.expires = Date.now() + BOARD_TTL;
+    renderAllow(); updateAllowButton(); toast(`${x.name} reauthorized for 30 days. No re-pairing needed.`);
+  });
 }
+const codeExpiry = () => MODE === "live" ? (liveCode?.expires_at ?? 0) : pairExpires;
 document.addEventListener("click", e => {
   const a = document.getElementById("allow");
   // a button inside the box may have re-rendered it, leaving the target detached
@@ -891,7 +966,7 @@ document.addEventListener("click", e => {
 document.getElementById("b-allow").onclick = e => {
   const a = document.getElementById("allow"); a.hidden = !a.hidden;
   e.currentTarget.setAttribute("aria-expanded", String(!a.hidden));
-  if (!a.hidden) renderAllow();
+  if (!a.hidden) { renderAllow(); loadBoards().then(() => { if (!a.hidden) renderAllow(); }); }
 };
 function renderPair() {
   const main = document.getElementById("main");
@@ -901,11 +976,18 @@ function renderPair() {
     <input id="pair-code" maxlength="7" aria-label="Pairing code" placeholder="XXX-XXX" spellcheck="false">
     <p class="err" id="pair-err" role="alert"></p>
     <button class="btn primary" type="submit">Connect</button>
-    <p class="small">Demo only: the current code is <b>${pairCode}</b>.</p>
+    ${MODE === "demo" ? `<p class="small">Demo only: the current code is <b>${pairCode}</b>.</p>` : ""}
+    ${MODE === "live" ? `<p class="alt"><a href="/" id="to-login">Sign in instead</a></p>` : ""}
   </form></div>`;
   const inp = document.getElementById("pair-code"); inp.focus();
   document.getElementById("pair-form").onsubmit = e => {
     e.preventDefault();
+    if (MODE === "live") {
+      api("boards/redeem", { method: "POST", body: { code: inp.value } })
+        .then(() => location.replace("/board"))
+        .catch(err => document.getElementById("pair-err").textContent = err.message);
+      return;
+    }
     const norm = x => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (Date.now() > pairExpires) { document.getElementById("pair-err").textContent = "That code has expired. Ask for a new one."; return; }
     if (norm(inp.value) !== norm(pairCode)) { document.getElementById("pair-err").textContent = "That code doesn't match. Check it and try again."; return; }
@@ -954,8 +1036,12 @@ function tick() {
   document.querySelectorAll("[data-since]").forEach(el => { const t = fmtDur(now - +el.dataset.since); el.textContent = el.closest(".row") ? `for ${t}` : t; });
   document.querySelectorAll("[data-ago]").forEach(el => el.textContent = fmtDur(now - +el.dataset.ago));
   document.querySelectorAll("[data-until]").forEach(el => el.textContent = `${fmtDur(+el.dataset.until - now)} left`);
-  const exp = document.getElementById("allow-exp"); if (exp) { if (now > pairExpires) { newCode(); renderAllow(); } else exp.textContent = mmss(pairExpires - now); }
-  for (const s of checks) {
+  const exp = document.getElementById("allow-exp");
+  if (exp) {
+    if (now > codeExpiry()) { if (MODE === "live") liveCode = null; else newCode(); renderAllow(); }
+    else exp.textContent = mmss(codeExpiry() - now);
+  }
+  if (MODE === "demo") for (const s of checks) {
     const every = fast(s) ? 5 * MIN : s.interval;
     if (every && s.state !== "stale" && now - s.lastSeen > every) s.lastSeen = now;
     if (s.state === "ack" && s.snooze && now >= s.snooze.until) apply(s.id, s.snooze.prior, "Snooze ended and the issue has not cleared", "Mission Control");
@@ -963,10 +1049,156 @@ function tick() {
 }
 setInterval(tick, 1000);
 setInterval(render, MIN);
-setInterval(() => { if (demo && !openId) nextEvent(); }, 12000);
+setInterval(() => { if (MODE === "demo" && demo && !openId) nextEvent(); }, 12000);
+
+// ---------- live mode: the Mission Control server ----------
+async function api(path, opts = {}) {
+  const r = await fetch(`/api/${path}`, {
+    method: opts.method || "GET", credentials: "same-origin",
+    headers: { "content-type": "application/json", "x-imc-request": "1" },
+    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+  });
+  const d = (r.headers.get("content-type") || "").includes("json") ? await r.json() : null;
+  if (!r.ok) throw Object.assign(new Error(d?.error || `Request failed (HTTP ${r.status})`), { status: r.status });
+  return d;
+}
+function computeGroups() {
+  GROUPS = [...new Set([...PREFERRED_GROUPS.filter(g => checks.some(c => c.group === g)), ...checks.map(c => c.group)])];
+}
+// Flash and log a change the moment fresh data shows one.
+function applyData(list) {
+  const prev = new Map(checks.map(c => [c.id, c]));
+  for (const c of list) {
+    const was = prev.get(c.id);
+    if (!was || was.state === c.state) continue;
+    if ((c.state === "crit" || c.state === "warn") && !c.parked) c.flash = true;
+    if (!c.parked) changes.unshift({ t: Date.now(), id: c.id, name: c.name, to: c.state, dur: Date.now() - was.since });
+  }
+  changes.length = Math.min(changes.length, 8);
+  checks = list; computeGroups(); render();
+}
+let loading = null;
+async function loadLive() {
+  if (loading) return loading;
+  loading = (async () => {
+    try {
+      const d = await api("checks");
+      applyData(d.checks.map(c => ({ ...c, parked: c.parked && { ...c.parked, until: c.parked.untilLabel } })));
+    } catch (e) {
+      if (e.status === 401) location.reload(); else toast(e.message);
+    } finally { loading = null; }
+  })();
+  return loading;
+}
+let refreshTimer;
+function connectStream() {
+  const es = new EventSource("/api/stream");
+  es.addEventListener("check", () => { clearTimeout(refreshTimer); refreshTimer = setTimeout(loadLive, 400); });
+  es.addEventListener("board.paired", e => {
+    const { name } = JSON.parse(e.data);
+    liveCode = null; closeAllow(); loadBoards();
+    toast(`${name} paired. That code no longer works.`);
+  });
+  setInterval(loadLive, 60_000); // safety net if the stream drops
+}
+function showWho() {
+  const p = session.principal, who = document.getElementById("who");
+  who.innerHTML = `<b>${esc(p.name)}</b> ${esc(p.role.replace("_", " "))} <button class="linkbtn" id="sign-out">Sign out</button>`;
+  who.hidden = false;
+  document.getElementById("sign-out").onclick = async () => { await api("logout", { method: "POST" }).catch(() => {}); location.replace("/"); };
+}
+function renderLogin() {
+  document.getElementById("main").innerHTML = `<div class="pair"><form id="login-form" autocomplete="on">
+    <h2>${esc(session?.instance?.name || "Mission Control")}</h2>
+    <label class="field"><span>Username</span><input id="login-user" autocomplete="username" required></label>
+    <label class="field"><span>Password</span><input id="login-pass" type="password" autocomplete="current-password" required></label>
+    <p class="err" id="login-err" role="alert"></p>
+    <button class="btn primary" type="submit">Sign in</button>
+    <p class="alt">Setting up a TV? <a href="/pair">Enter a pairing code</a></p>
+  </form></div>`;
+  document.getElementById("login-user").focus();
+  document.getElementById("login-form").onsubmit = e => {
+    e.preventDefault();
+    api("login", { method: "POST", body: { username: document.getElementById("login-user").value, password: document.getElementById("login-pass").value } })
+      .then(() => location.replace(location.pathname === "/board" ? "/board" : "/"))
+      .catch(err => document.getElementById("login-err").textContent = err.message);
+  };
+}
+function renderExpired() {
+  const b = session?.board_expired;
+  document.getElementById("main").innerHTML = `<div class="pair"><form>
+    <h2>Board access expired</h2>
+    <p class="small">"${esc(b?.name || "This board")}" needs to be reauthorized. Ask an admin to open <b>Allow a board</b> and choose <b>Reauthorize</b>. This screen reconnects by itself within a minute.</p>
+    <p class="alt"><a href="/pair">Pair with a new code instead</a></p>
+  </form></div>`;
+}
+async function bootLive() {
+  try { session = await api("session"); } catch { session = null; }
+  perms = new Set(session?.principal?.permissions || []);
+  const path = location.pathname;
+  if (!session?.principal) {
+    if (path === "/pair" || location.hash === "#pair") return setView("pair");
+    if (session?.board_expired) {
+      setView("expired");
+      setInterval(async () => { const s = await api("session").catch(() => null); if (s?.principal) location.reload(); }, 60_000);
+      return;
+    }
+    if (!session?.instance?.public_board) return setView("login");
+  } else if (session.principal.kind === "board") {
+    kiosk = true; document.body.classList.add("kiosk"); view = "board";
+    const tag = document.getElementById("kiosk-tag"); tag.textContent = `Read-only · ${session.principal.name}`; tag.hidden = false;
+  } else {
+    showWho();
+    if (path === "/board") view = "board";
+  }
+  document.getElementById("b-allow").hidden = !perms.has("manage_boards");
+  await loadLive(); loadBoards(); connectStream();
+  setView(view);
+}
+
+// ---------- public mode: static status.json, history kept in this browser ----------
+const PUBLIC_KEY = "imc.public.v1", PUBLIC_KEEP = 7 * DAY;
+async function loadPublic() {
+  let d;
+  try { d = await (await fetch("status.json", { cache: "no-store" })).json(); }
+  catch { toast("Couldn't load the latest status. Showing what this page saw last."); return; }
+  let hist = {};
+  try { hist = JSON.parse(localStorage.getItem(PUBLIC_KEY) || "{}"); } catch {}
+  const now = Date.now();
+  const list = d.checks.map(c => {
+    const h = hist[c.id] || (hist[c.id] = { state: "ok", since: now, first: now, spans: [] });
+    if (h.state !== c.state) {
+      const open = h.spans.find(x => x.end === null); if (open) open.end = now;
+      if (c.state !== "ok") h.spans.push({ start: now, end: null, state: c.state });
+      h.state = c.state; h.since = now;
+    }
+    h.spans = h.spans.filter(x => x.end === null || x.end > now - PUBLIC_KEEP);
+    const words = c.name.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+    return {
+      id: c.id, name: c.name, group: c.group, mono: c.icon?.mono || (words[0]?.[0] || "?") + (words[1]?.[0] || ""), brand: c.icon?.color || "#3b4a44",
+      src: "poll", via: "Vendor status feed", url: c.link, state: c.state, since: h.since, msg: c.summary,
+      lastSeen: d.generated_at, monitoredFrom: h.first, incidents: h.spans, parked: null, snooze: null, peak: null,
+      log: (c.issues || []).map(i => ({ t: i.startedAt || d.generated_at, state: i.state, m: i.summary, o: "Vendor status feed" })),
+    };
+  });
+  try { localStorage.setItem(PUBLIC_KEY, JSON.stringify(hist)); } catch {}
+  applyData(list);
+}
+async function bootPublic() {
+  const n = document.getElementById("notice");
+  n.textContent = "Public demo: live status from each vendor's public status feed, refreshed every few minutes. History is kept in this browser only, for 7 days, and starts when you first open the page.";
+  n.hidden = false;
+  await loadPublic();
+  setInterval(loadPublic, 5 * MIN);
+  setView(view);
+}
 
 try { const v = localStorage.getItem("imc.view"); if (v === "cards" || v === "list") view = v; } catch {}
 const hashView = location.hash.slice(1); if (["cards", "list", "board", "pair"].includes(hashView)) view = hashView;
-tick(); setView(view);
+document.body.classList.add(`mode-${MODE}`);
+tick();
+if (MODE === "live") bootLive();
+else if (MODE === "public") bootPublic();
+else setView(view);
 })();
 </script>

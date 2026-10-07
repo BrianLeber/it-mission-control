@@ -95,14 +95,14 @@ export class Engine extends EventEmitter {
   }
 
   /** A poll that failed (network, auth, parse). Two in a row, or a long gap, means NO SIGNAL. */
-  fail(checkId: string, error: string, origin: string, now = Date.now()) {
+  fail(checkId: string, error: string, origin: string, now = Date.now(), opts: { immediate?: boolean } = {}) {
     const c = this.connector(checkId); if (!c) return;
     tx(this.db, () => {
       const st = this.state(checkId)!;
       const fails = st.fail_count + 1;
       this.db.prepare("UPDATE check_state SET fail_count = ?, last_error = ? WHERE check_id = ?").run(fails, error, checkId);
       const since = st.last_ok_at ?? st.monitored_from;
-      if (fails >= 2 || now - since > c.every * c.grace) {
+      if (opts.immediate || fails >= 2 || now - since > c.every * c.grace) {
         this.upsertIssue(checkId, this.openIssues(checkId), { key: SIGNAL_KEY, state: "stale", summary: `Can't read source: ${error}` }, origin, now);
       }
       this.recompute(checkId, now);

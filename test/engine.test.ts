@@ -139,3 +139,11 @@ test("removing a repo connector disables it but keeps its history", () => {
   engine.syncConnectors([], "repo");
   assert.equal(engine.checks()[0].enabled, 0);
 });
+
+test("missing credentials show NO SIGNAL straight away", () => {
+  const { engine } = setup();
+  engine.fail("svc", "waiting for credentials (front_api_token)", "test", min(1), { immediate: true });
+  const st = engine.state("svc")!;
+  assert.equal(st.state, "stale");
+  assert.match(st.summary, /waiting for credentials/);
+});
