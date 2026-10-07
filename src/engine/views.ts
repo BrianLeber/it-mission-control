@@ -27,6 +27,7 @@ export interface CheckView {
   platform: boolean;
   demo: boolean;
   size: string;
+  criticality: string;
   components: { name: string; relevance: string; note?: string; state: string; open: number; summary: string | null }[];
   sensitivity?: string;
 }
@@ -56,7 +57,7 @@ export function visibleChecks(engine: Engine, p: Principal, opts: { includeSensi
   const out: CheckView[] = [];
   for (const row of engine.checks()) {
     const c = row.connector;
-    if (!row.enabled || !canSee(p, { sensitivity: c.sensitivity, groups: c.groups })) continue;
+    if (!row.enabled || !canSee(p, c)) continue;
     const st = engine.state(c.id); if (!st) continue;
     const spans = spansQ.all(c.id, now - HISTORY) as { state: string; start: number; end: number | null }[];
     const parked: Parked | null = st.parked ? JSON.parse(st.parked) : null;
@@ -75,7 +76,7 @@ export function visibleChecks(engine: Engine, p: Principal, opts: { includeSensi
       issues: engine.openIssues(c.id).map(i => ({ id: i.id, ref: i.ref ?? null, summary: i.summary, state: i.state, openedAt: i.opened_at, tracked: !!i.tracked_at,
         components: JSON.parse(i.components ?? "[]"), manual: !!i.manual, ignored: !!i.ignored })),
       platform: c.platform || c.components.length > 0,
-      demo: c.demo, size: engine.size(c.id),
+      demo: c.demo, size: engine.size(c.id), criticality: c.criticality,
       components: c.platform || c.components.length ? componentStates(engine, c.id) : [],
       ...(opts.includeSensitivity ? { sensitivity: c.sensitivity } : {}),
     });

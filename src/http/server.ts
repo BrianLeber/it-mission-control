@@ -16,6 +16,7 @@ import { parseConnectorYaml } from "../connectors/registry.ts";
 import { UserError, type Engine, type EngineEvent } from "../engine/engine.ts";
 import type { Runner } from "../engine/runner.ts";
 import { visibleChecks } from "../engine/views.ts";
+import { deleteView, getView, privateChecks, saveView, viewsFor } from "../engine/boards.ts";
 import { getIncident, incidentMarkdown, listIncidents, type IncidentStatus } from "../engine/incidents.ts";
 import { buildMcpServer } from "../mcp/tools.ts";
 import { secretRefs, type Vault } from "../secrets/vault.ts";
@@ -57,6 +58,7 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
   route("GET", "/api/session", c => ({
     principal: c.principal.kind === "anonymous" ? null : {
       kind: c.principal.kind, name: c.principal.name, role: c.principal.role, clearance: c.principal.clearance,
+      view_name: (c.principal as Principal & { viewName?: string }).viewName ?? null,
       permissions: PERMISSIONS.filter(x => can(c.principal, x)),
     },
     board_expired: c.boardExpired,
@@ -161,7 +163,21 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
 
   // ---------- boards ----------
   route("GET", "/api/boards", () => ({ boards: listBoards(db), ttl_days: BOARD_TTL / 86400e3 }), "manage_boards");
-  route("POST", "/api/boards/codes", c => createPairCode(db, c.principal, String(c.body?.name ?? ""), isLevel(c.body?.clearance) ? c.body.clearance : "guest"), "manage_boards");
+  // Share board: a screen pairs to the board you're looking at, unless it holds private services.
+  route("POST", "/api/boards/codes", c => {
+    const v = getView(db, String(c.body?.view_id ?? "it"));
+    if (!v) throw new UserError("Pick a board to share");
+    const priv = privateChecks(engine, v);
+    if (priv.length) {
+      const names = priv.filter(x => canSee(c.principal, x)).map(x => x.name);
+      throw new UserError(`Sharing not allowed: ${v.name} includes private services${names.length ? ` (${names.join(", ")})` : ""}.`);
+    }
+    return { ...createPairCode(db, c.principal, String(c.body?.name ?? ""), "viewer", v.id), view: { id: v.id, name: v.name } };
+  }, "manage_boards");
+  route("GET", "/api/views", c => ({ views: viewsFor(engine, c.principal) }), "view");
+  route("POST", "/api/views", c => saveView(db, c.principal, { name: c.body?.name, groups: c.body?.groups, checks: c.body?.checks }), "manage_boards");
+  route("PUT", "/api/views/:id", c => saveView(db, c.principal, { id: c.params.id, name: c.body?.name, groups: c.body?.groups, checks: c.body?.checks }), "manage_boards");
+  route("DELETE", "/api/views/:id", c => { deleteView(db, c.principal, c.params.id); return { ok: true }; }, "manage_boards");
   route("POST", "/api/boards/:id/reauthorize", c => { reauthorizeBoard(db, c.principal, c.params.id); return { ok: true }; }, "manage_boards");
   route("DELETE", "/api/boards/:id", c => { revokeBoard(db, c.principal, c.params.id); return { ok: true }; }, "manage_boards");
   const redeemTries = new Map<string, { n: number; reset: number }>();

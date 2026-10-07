@@ -102,25 +102,39 @@ test("technicians can't manage boards, credentials or users", async () => {
   assert.equal((await call("/api/users", { cookie: tech })).status, 403);
 });
 
-test("board pairing: single-use code, read-only guest view", async () => {
+test("share board: private services block sharing; a screen sees exactly its board", async () => {
   const admin = await signIn("admin", "admin-password-123");
-  const { data: code } = await call("/api/boards/codes", { method: "POST", cookie: admin, body: { name: "Lobby TV" } });
+  // The default IT board shows everything, which includes the secret Payroll gateway.
+  const blocked = await call("/api/boards/codes", { method: "POST", cookie: admin, body: { name: "Lobby TV", view_id: "it" } });
+  assert.equal(blocked.status, 400);
+  assert.match(blocked.data.error, /^Sharing not allowed: IT board includes private services\.$/, "names stay hidden from someone who can't see them");
+  const views = (await call("/api/views", { cookie: admin })).data.views;
+  assert.equal(views.find((v: any) => v.id === "it").shareable, false);
+
+  const { data: lobby } = await call("/api/views", { method: "POST", cookie: admin, body: { name: "Lobby board", checks: ["github", "jamf"] } });
+  const { data: code } = await call("/api/boards/codes", { method: "POST", cookie: admin, body: { name: "Lobby TV", view_id: lobby.id } });
   assert.match(code.code, /^[A-Z2-9]{3}-[A-Z2-9]{3}$/);
   const redeem = await call("/api/boards/redeem", { method: "POST", body: { code: code.code } });
   assert.equal(redeem.status, 200);
   assert.equal((await call("/api/boards/redeem", { method: "POST", body: { code: code.code } })).status, 400, "code is spent");
   const board = redeem.cookie;
-  assert.deepEqual(ids((await call("/api/checks", { cookie: board })).data), ["github"], "guest clearance sees public checks only");
-  assert.equal((await call("/api/checks/github/clear", { method: "POST", cookie: board })).status, 403, "boards can't operate");
+  assert.deepEqual(ids((await call("/api/checks", { cookie: board })).data), ["github", "jamf"], "only the board's services");
+  assert.equal((await call("/api/checks/github/clear", { method: "POST", cookie: board })).status, 403, "screens can't operate");
   const session = (await call("/api/session", { cookie: board })).data;
   assert.equal(session.principal.kind, "board");
+  assert.equal(session.principal.view_name, "Lobby board");
 
   const list = (await call("/api/boards", { cookie: admin })).data.boards;
+  assert.equal(list[0].view_name, "Lobby board");
+  assert.equal((await call(`/api/views/${lobby.id}`, { method: "DELETE", cookie: admin })).status, 400, "can't delete a board screens still show");
   app.db.prepare("UPDATE boards SET expires_at = ?").run(Date.now() - 1);
   const expired = (await call("/api/session", { cookie: board })).data;
   assert.equal(expired.board_expired.name, "Lobby TV");
   assert.equal((await call(`/api/boards/${list[0].id}/reauthorize`, { method: "POST", cookie: admin })).status, 200);
   assert.equal((await call("/api/checks", { cookie: board })).status, 200, "back without re-pairing");
+  // The finance viewer can see Payroll, so for them the block names it. (They can't share boards anyway.)
+  const fin = await signIn("fin", "fin-password-1234");
+  assert.deepEqual((await call("/api/views", { cookie: fin })).data.views.find((v: any) => v.id === "it").blocked_by, ["Payroll gateway"]);
 });
 
 test("public board shows public checks to anyone", async () => {

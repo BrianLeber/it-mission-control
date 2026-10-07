@@ -88,16 +88,16 @@ export function principalFromSession(db: DB, token: string): Principal | null {
 
 // ---------- boards ----------
 
-export interface BoardRow { id: string; name: string; clearance: Level; created_by: number | null; paired_at: number; expires_at: number; last_seen: number | null; revoked_at: number | null }
+export interface BoardRow { id: string; name: string; clearance: Level; created_by: number | null; paired_at: number; expires_at: number; last_seen: number | null; revoked_at: number | null; view_id: string | null }
 
-/** One code, one board, ten minutes. Clearance is capped by the issuer's and by the board maximum. */
-export function createPairCode(db: DB, by: Principal, name: string, clearance: Level = "guest") {
+/** One code, one screen, ten minutes. Clearance is capped by the issuer's and by the board maximum. */
+export function createPairCode(db: DB, by: Principal, name: string, clearance: Level = "viewer", viewId: string | null = null) {
   if (!can(by, "manage_boards") || by.kind !== "user") throw new AccessError("You can't add boards.");
   if (!name.trim()) throw new AccessError("Give the board a name", 400);
   const level = minLevel(minLevel(clearance, by.clearance), BOARD_MAX_CLEARANCE);
   const code = pairCode();
-  db.prepare("INSERT INTO pair_codes (code_hash, name, clearance, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(sha256(normalizeCode(code)), name.trim().slice(0, 60), level, Number(by.id), Date.now(), Date.now() + PAIR_CODE_TTL);
+  db.prepare("INSERT INTO pair_codes (code_hash, name, clearance, created_by, created_at, expires_at, view_id) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(sha256(normalizeCode(code)), name.trim().slice(0, 60), level, Number(by.id), Date.now(), Date.now() + PAIR_CODE_TTL, viewId);
   audit(db, by.name, "board.code", name, { clearance: level });
   return { code, expires_at: Date.now() + PAIR_CODE_TTL, clearance: level };
 }
@@ -107,12 +107,12 @@ export function redeemPairCode(db: DB, code: string): { token: string; board: Bo
   return tx(db, () => {
     const h = sha256(normalizeCode(code));
     const row = db.prepare("SELECT * FROM pair_codes WHERE code_hash = ?").get(h) as
-      { name: string; clearance: Level; created_by: number; expires_at: number; used_at: number | null } | undefined;
+      { name: string; clearance: Level; created_by: number; expires_at: number; used_at: number | null; view_id: string | null } | undefined;
     if (!row || row.used_at) throw new AccessError("That code doesn't match. Check it and try again.", 400);
     if (row.expires_at < Date.now()) throw new AccessError("That code has expired. Ask for a new one.", 400);
     const id = newToken().slice(0, 12), token = newToken("imcb_"), now = Date.now();
-    db.prepare("INSERT INTO boards (id, name, token_hash, clearance, created_by, paired_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(id, row.name, sha256(token), row.clearance, row.created_by, now, now + BOARD_TTL);
+    db.prepare("INSERT INTO boards (id, name, token_hash, clearance, created_by, paired_at, expires_at, view_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, row.name, sha256(token), row.clearance, row.created_by, now, now + BOARD_TTL, row.view_id);
     db.prepare("UPDATE pair_codes SET used_at = ?, board_id = ? WHERE code_hash = ?").run(now, id, h);
     audit(db, `board:${row.name}`, "board.paired", id);
     return { token, board: db.prepare("SELECT * FROM boards WHERE id = ?").get(id) as unknown as BoardRow, issuer: row.created_by };
@@ -126,12 +126,17 @@ export function principalFromBoard(db: DB, token: string): BoardAuth {
   if (!b) return null;
   if (b.expires_at < Date.now()) return { expired: { id: b.id, name: b.name } };
   db.prepare("UPDATE boards SET last_seen = ? WHERE id = ?").run(Date.now(), b.id);
-  return { principal: { kind: "board", id: b.id, name: b.name, role: "guest", clearance: b.clearance, groups: [] } };
+  const v = b.view_id ? db.prepare("SELECT name, groups, checks FROM board_views WHERE id = ?").get(b.view_id) as { name: string; groups: string; checks: string } | undefined : undefined;
+  return { principal: { kind: "board", id: b.id, name: b.name, role: "guest", clearance: b.clearance, groups: [],
+    // A screen whose board was deleted shows nothing rather than everything.
+    board: b.view_id ? (v ? { checks: JSON.parse(v.checks), groups: JSON.parse(v.groups) } : { checks: ["\u0000none"], groups: [] }) : undefined,
+    ...(v ? { viewName: v.name } : {}) } as Principal };
 }
 
 export function listBoards(db: DB) {
   const now = Date.now();
-  return (db.prepare("SELECT id, name, clearance, paired_at, expires_at, last_seen FROM boards WHERE revoked_at IS NULL ORDER BY name").all() as unknown as BoardRow[])
+  return (db.prepare(`SELECT b.id, b.name, b.clearance, b.paired_at, b.expires_at, b.last_seen, b.view_id, v.name AS view_name
+    FROM boards b LEFT JOIN board_views v ON v.id = b.view_id WHERE b.revoked_at IS NULL ORDER BY b.name`).all() as unknown as (BoardRow & { view_name: string | null })[])
     .map(b => ({ ...b, status: b.expires_at <= now ? "expired" : b.expires_at - now <= BOARD_EXPIRY_WARN ? "expiring" : "active" }));
 }
 

@@ -55,9 +55,13 @@ export interface Principal {
   groups: string[];
   /** API tokens are limited to these permissions on top of the role. */
   scopes?: Permission[];
+  /** Screens show one board: only these checks or groups (both empty = everything in clearance). */
+  board?: { checks: string[]; groups: string[] };
 }
 
 export interface Classified {
+  id?: string;
+  group?: string;
   sensitivity: Level;
   /** Selective access: when non-empty, the viewer must belong to at least one of these groups. */
   groups?: string[];
@@ -76,8 +80,15 @@ export function can(p: Principal, perm: Permission): boolean {
   return p.scopes ? p.scopes.includes(perm) : true;
 }
 
+/** Services that make a board unshareable: knowing they exist is itself sensitive. */
+export const PRIVATE_LEVELS: Level[] = ["sensitive", "secret"];
+
+export const inBoard = (b: { checks: string[]; groups: string[] }, item: Classified) =>
+  (!b.checks.length && !b.groups.length) || (!!item.id && b.checks.includes(item.id)) || (!!item.group && b.groups.includes(item.group));
+
 export function canSee(p: Principal, item: Classified): boolean {
   if (levelIndex(p.clearance) < levelIndex(item.sensitivity)) return false;
+  if (p.board && !inBoard(p.board, item)) return false;
   const g = item.groups ?? [];
   return g.length === 0 || g.some(x => p.groups.includes(x));
 }

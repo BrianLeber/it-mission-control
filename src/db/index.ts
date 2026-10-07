@@ -195,6 +195,19 @@ const MIGRATIONS: string[] = [
     at INTEGER NOT NULL
   );
   `,
+  `
+  -- Boards are named views (IT board, IR board); paired screens each show one.
+  CREATE TABLE board_views (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    groups TEXT NOT NULL DEFAULT '[]',
+    checks TEXT NOT NULL DEFAULT '[]',
+    created_by TEXT,
+    created_at INTEGER NOT NULL
+  );
+  ALTER TABLE boards ADD COLUMN view_id TEXT;
+  ALTER TABLE pair_codes ADD COLUMN view_id TEXT;
+  `,
 ];
 
 export function openDb(path: string): DB {

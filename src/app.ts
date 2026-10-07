@@ -5,11 +5,13 @@ import { Runner } from "./engine/runner.ts";
 import { Vault, loadKey } from "./secrets/vault.ts";
 import type { SafeFetch } from "./connectors/fetch.ts";
 import { log } from "./util/log.ts";
+import { ensureDefaultView } from "./engine/boards.ts";
 
 /** Wires the pieces together; used by main.ts, the CLI and integration tests. */
 export function boot(opts: { db: string | DB; connectorsDir?: string; key: Buffer; fetch?: SafeFetch }) {
   const db = typeof opts.db === "string" ? openDb(opts.db) : opts.db;
   const engine = new Engine(db);
+  ensureDefaultView(db);
   const vault = new Vault(db, opts.key);
   const runner = new Runner(engine, vault, opts.fetch);
   const problems: string[] = [];

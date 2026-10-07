@@ -34,6 +34,8 @@ export const ConnectorSchema = z.object({
   options: z.record(z.string(), z.unknown()).default({}),
   /** Sample or test data: the card says "demo" after the name so nobody mistakes it for real. */
   demo: z.boolean().default(false),
+  /** How much it matters when green: high stays large and near the top; low shrinks first. */
+  criticality: z.enum(["high", "normal", "low"]).default("normal"),
   /** Card size. auto: full while it needs attention, compact once quiet for a while. logo: mostly hidden. */
   size: z.enum(["auto", "full", "compact", "logo"]).default("auto"),
   /** A broad service with parts (Microsoft 365, Google Workspace): gets its own page with a card per component. */
