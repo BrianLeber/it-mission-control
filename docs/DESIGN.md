@@ -47,23 +47,44 @@ Manager ("TMOG"):
 |---|---|---|---|---|---|
 | **DOWN** | red | ◆ | Hard failure or major outage | Source reports major/critical, a job fails, or heartbeats are missed past the hard limit | A clear signal, then the release window passes |
 | **DEGRADED** | yellow | ▲ | Partial outage, threshold breach, alerting | Minor incident, metric over threshold | Same as above |
-| **ACKNOWLEDGED** | orange | ■ | A person has seen it and it is still not fixed | Someone acknowledges a DOWN, DEGRADED or NO SIGNAL | The underlying signal clears |
+| **SNOOZED** | orange | ■ | A signed-in person has seen it and silenced it for a set time. It is still not fixed. | Someone snoozes a DOWN, DEGRADED or NO SIGNAL for 15m, 1h or 4h | The signal clears, the snooze runs out, or it gets worse |
 | **NO SIGNAL** | grey, dashed | ○ | We don't know. Data is stale or the source is unreachable | No poll, ping or mail inside the expected interval × grace | Any fresh signal |
 | **MAINTENANCE** | blue | ◇ | Expected downtime | A maintenance window is active (vendor-scheduled or ours) | Window ends |
 | **OPERATIONAL** | green (dim) | ● | All good | A clear signal | — |
 
 Rules:
 
-- **Severity order** (sorting and history aggregation): DOWN > DEGRADED > NO SIGNAL > ACK > MAINT > OK.
-- **Acks belong to the incident, not the check.** If an acknowledged check gets a *new*
-  incident, or the acknowledged one gets worse (DEGRADED to DOWN), it re-arms and flashes
-  again. The same applies to a clip light that has been reset.
+- **Severity order** (sorting and history aggregation): DOWN > DEGRADED > NO SIGNAL > SNOOZED > MAINT > OK. Parked checks sort after all of them.
+- **Snoozes belong to the incident, not the check.** A snooze needs a signed-in user and is
+  always time-boxed. If it runs out while the issue is still open, the check re-arms to its
+  previous state and flashes again. It also re-arms early if the snoozed incident gets
+  worse (DEGRADED to DOWN) or a new incident opens. The card counts down the time left
+  ("2h 47m left"). Finer rules (who can snooze what, maximum length, notes required) are
+  still to be designed.
 - **Unexpected statuses** (a value the adapter doesn't recognize, or a classifier result
-  below the confidence threshold) show as ACKNOWLEDGED-orange with a "needs review" tag. That
-  keeps them visible without claiming an outage.
+  below the confidence threshold) show orange with a "needs review" tag. That keeps them
+  visible without claiming an outage.
+- **NO SIGNAL stays grey** (decided). "We can't see it" is a different problem from "it's
+  broken" and needs a different fix.
 - **Explained history turns blue.** After an outage, someone (or the vendor's postmortem
   feed) can mark the incident as explained or planned. Its history cells repaint blue. The
   border is unaffected because that outage is over.
+
+### Noise controls: false alarms and parked checks
+
+Not every alert deserves a light. There are two tools, and they do different jobs:
+
+| | **False alarm** | **Park** |
+|---|---|---|
+| Use for | This alert was wrong | This is real, but it can wait (the AP that keeps dropping with no user impact) |
+| Effect now | Closes the incident, with no PEAK hold | The check leaves "Needs attention", stops flashing, isn't counted in the header and never reorders the board |
+| History | The alert chain repaints as **× false alarm** (dim grey) and is left out of availability figures | Keeps recording the real state, so you can still see the flapping |
+| Card | Normal | Dashed neutral border, a **PARKED** tag next to the underlying state, the reason and the "until" date, in a **Parked** tray at the bottom |
+| Ends | — | On its review date (it comes back lit if it is still bad), when someone unparks it, or through an escalation guard (e.g. DOWN for more than 4h, or more than N sibling APs affected) |
+| Feeds | Rules and classifier: a negative example and a suggestion to tighten or suppress the rule | The weekly digest: "parked items past their date" |
+
+Both actions need a signed-in user, record who did it and why, and appear in the signal
+log.
 
 ## 3. The compressed-time history strip
 
@@ -95,8 +116,8 @@ for 100+ checks.
 |---|---|---|
 | **Cards** | Desk use | Grouped by Public SaaS / Our platforms / Infrastructure. With **Auto-focus** on, anything needing attention rises into a "Needs attention" section, followed by "Planned". Healthy groups sort recently-recovered first, so PEAK tags stay near the top. |
 | **List** | Density, triage | One row per check. The status color sits on the name pill. Wider history (1-minute cells for the last hour). On narrow screens, rows stack. |
-| **Board** | TV / NOC wall | No controls to fiddle with. Attention items are big; healthy checks collapse to small tiles with a mini history. A "recent changes" ticker along the bottom answers "did that clear?" ("14:02 Slack ● OK after 9m"). Requests a screen wake lock; `F` toggles fullscreen. |
-| **Side panel** | Click any card or row | Current state, **Open source ↗**, acknowledge or clear, signal facts (source, interval, last heard), a full-width history strip, and the raw signal log. |
+| **Board** | TV / NOC wall | Designed to fit **1920×1080** with no scrolling (verified for about 18 checks; past about 40 it needs group roll-ups). No controls to fiddle with. Attention items are big; healthy checks collapse to small tiles with a mini history. A "recent changes" ticker along the bottom answers "did that clear?" ("14:02 Slack ● OK after 9m"). Requests a screen wake lock; `F` toggles fullscreen. |
+| **Side panel** | Click any card or row | Current state, **Open source ↗**, snooze, false alarm, park or clear, signal facts (source, interval, last heard), a full-width history strip, and the raw signal log. |
 
 **Header master meter:** one LED segment per check, sorted by severity, plus counts per
 state. It works like the master bus on a mixing desk: the whole estate in one glance,
@@ -109,6 +130,21 @@ animates the moves so they read as movement rather than a jump. The production v
   churn.
 - **Pins** for checks that should always hold their position.
 - Weighting by **business impact** (e.g. Okta DOWN outranks a GitHub DEGRADED).
+
+### Board pairing (no user account on the TV)
+
+A board shows status with no signed-in user and has read-only access:
+
+1. A signed-in admin chooses **Allow a board**, names it ("Lobby TV") and gets a short
+   one-time code (`5TM-9XX`, 10-minute expiry, no ambiguous characters).
+2. The TV or browser opens the board URL. Unpaired, it shows only a code entry screen with
+   no status data.
+3. A matching code swaps for a long-lived **device token** scoped to `board:read`. The board
+   can't snooze, park or clear anything.
+4. Admins see the paired boards with their last-seen times and can revoke each one.
+
+Typing on a TV remote is clumsy, so we can add the reverse flow later: the TV shows the code
+and the admin types it on their laptop. The same token model supports both.
 
 **TV hygiene:** a dark ground, a dimmed healthy state and a slow pixel shift protect
 OLED/plasma panels from burn-in. Minimum type size is set for reading at about 3 m.
@@ -154,11 +190,20 @@ A check can have several open incidents at once. NinjaOne might report "disk 92%
 
 ### Ingest adapters
 
+**Cadence defaults:** proactive polls run **hourly** by default, and every few hours for
+slow-moving checks such as certificate expiry and license counts. Each check sets its own
+interval. A polled check that isn't operational **speeds up to every 5 minutes** until it
+clears (the card shows `poll 5m ▴`), so recovery is caught fast without hammering APIs the
+rest of the time. Push sources (webhooks, heartbeats, email, Slack) arrive when they arrive.
+NO SIGNAL only applies where an interval is expected (2× interval grace by default). We will
+tune all of this during testing.
+
 | Kind | Examples | Notes |
 |---|---|---|
 | **Poll** | Statuspage-hosted status pages (Zoom, GitHub, Atlassian and many others expose `/api/v2/summary.json`), Slack's status API, Microsoft Graph service health (`admin/serviceAnnouncement/healthOverviews` and `/issues`, needs `ServiceHealth.Read.All`), Google Workspace status JSON, Jamf Pro (`/healthCheck.html` plus API checks), NinjaOne API (device and alert state), Front API (queue snapshot: open count, past-SLA count, oldest), vCenter REST (hosts, triggered alarms) | Each adapter maps vendor states onto our six. Cadence is per check. **Endpoints to be confirmed against each vendor's current docs during build.** |
 | **Webhook** | NinjaOne alert webhooks, Statuspage subscriptions, Jamf webhooks, generic JSON | `POST /api/ingest/:source` with a per-source secret or HMAC. A generic schema lets anything that can send JSON report state. |
 | **Heartbeat** | Cron jobs, backup scripts, Linux and Windows boxes | `GET/POST /api/ping/:check/:token` (and `/fail`). A missed ping moves the check to NO SIGNAL, then to DOWN past a hard limit. Same idea as healthchecks.io. |
+| **Slack channel** | `#it-alerts`, `#it-network-alerts`, vendor bots posting into Slack | Slack Events API (a bot added to the alert channels). Messages go through the same rules → classifier pipeline as email, and thread replies count as follow-ups. This is likely the **first** text source, since most alerts already land in Slack. |
 | **Email** | Veeam, UPS, vendor notices, anything that only emails | An alert mailbox (an M365 shared mailbox read through Graph, or forwarding into an inbound-mail endpoint). See below. |
 
 For Windows and Linux servers, the plan is to **lean on NinjaOne** (it already watches them)
@@ -175,8 +220,9 @@ Ninja can't see).
    `from:veeam@ subject:/\[(Failed|Warning|Success)\] (?<job>.+?) / → check=veeam-{job}, key={job}, Success ⇒ clear`.
    Thread headers and normalized subjects (with `RE:`, `[RESOLVED]` and similar stripped)
    tie a resolution to the alert it closes.
-3. **Tier 1, classifier model** (anything rules don't match): a small, fast model reads the
-   mail and returns structured JSON:
+3. **Tier 1, "System 1" classifier** (anything rules don't match): a small, fast model
+   that makes a quick call on a single message. It doesn't reason over the whole system.
+   It reads the message and returns structured JSON:
    `{check_id | "unknown", state, correlation_key, opens|clears, confidence, one_line_summary}`.
    - Confidence at or above the threshold: it acts, and the log shows
      `classified by model (0.91)`.
@@ -184,11 +230,26 @@ Ninja can't see).
      raw mail. Confirming it offers to **save a rule**, so repeat mail moves down to Tier 0
      over time.
    - The model can only map to existing checks. It never creates checks, and it never
-     clears an incident a human acknowledged without a matching key.
+     clears an incident a human snoozed or parked without a matching key.
 4. Every action keeps a link back to the original message.
 
-The same pipeline can read Slack alert channels (Events API) where an alert *only* exists
-in Slack.
+The same pipeline reads Slack alert channels, where a thread reply or a later "back
+online" post closes what the first post opened.
+
+### Digest (daily / weekly)
+
+An LLM-written summary, posted to Slack (and optionally email). It is built from the
+incident store, **not** from raw alerts, so it reports state and not noise:
+
+- What broke, for how long, and whether it is cleared. Each item links to its card.
+- What is still open, snoozed or parked, with parked items past their review date called
+  out.
+- Repeat offenders and flapping checks, which are candidates for parking or a fix.
+- False-alarm counts per rule, which are candidates for tuning.
+- Weekly: availability per service from the history buckets, with false alarms left out.
+
+The model only summarizes facts we pass in as structured data. Every number in the digest
+comes from the database.
 
 ### Stack (proposal, open to change)
 
@@ -207,26 +268,31 @@ in Slack.
 | Phase | Scope |
 |---|---|
 | **0. Prototype** (this commit) | Visual language, states, history strip, three views, side panel, demo feed |
-| **1. Core + public SaaS** | Data model, incident engine (debounce, staleness, maintenance), SSE, pollers for Slack, Zoom, M365, Okta, Google and GitHub, Board view on a real TV |
-| **2. Our platforms** | Jamf, NinjaOne (API and webhook), Front snapshots, vCenter, heartbeats |
-| **3. Email** | Alert mailbox, Tier 0 rules, open and close on follow-up, needs-review queue |
-| **4. Smarts** | Tier 1 classifier, rule suggestions, auto-focus cooldown and pins, impact weighting |
+| **1. Core + public SaaS** | Data model, incident engine (debounce, staleness, maintenance, adaptive polling), SSE, pollers for Slack, Zoom, M365, Okta, Google and GitHub, sign-in, board pairing, Board view on a real 1080p TV |
+| **2. Our platforms** | Jamf, NinjaOne (API and webhook), Front snapshots, vCenter, heartbeats. Snooze, park and false alarm |
+| **3. Slack + email** | Slack alert channels first, then email. Tier 0 rules, open and close on follow-up, needs-review queue |
+| **4. Smarts** | System 1 classifier, rule suggestions from false alarms, daily and weekly digest, auto-focus cooldown and pins, impact weighting |
 | **5. User side** (stretch) | Per-user views and filters, ack notes and handoff, notifications that link to the card instead of repeating the alert |
 
-## 7. Open questions
+## 7. Decisions and open questions
 
-1. **Classifier model.** I read "Jev/Laya style type 1 model" as a small, fast,
-   "System 1" style classifier. Is that right? And can alert email contents go to a hosted
-   model (e.g. a small Claude model over the API), or must it run locally?
-2. **NO SIGNAL.** Keep it as its own grey dashed state (as prototyped), or fold it into
-   orange as an "unexpected status"?
-3. **Ack behaviour.** Who can acknowledge? Should an acknowledgement expire (e.g. back to
-   red after 8h, or at shift change)?
-4. **Email source.** Alert mail already lands in Front. Should Mission Control read those
-   Front inboxes through the API, or get its own mailbox (M365 shared mailbox through Graph)?
-5. **Servers.** Does NinjaOne already cover the Windows and Linux servers (and VMware
-   hosts) well enough to be the source of truth, or do we need direct checks too?
-6. **Scale and hosting.** Roughly how many checks: 20, 100, 500? (Past ~60, the board
-   needs group roll-ups.) Where should it run (internal VM, Azure, other), and which SSO
-   provider?
-7. **TV.** What screen and resolution? Should a new DOWN play a sound?
+**Decided**
+
+- Classifier: a small, fast "System 1" model behind the deterministic rules.
+- NO SIGNAL stays its own grey state.
+- Orange is **SNOOZED**: a signed-in user silences a critical alert for a set time. The
+  details are to be designed.
+- Slack alert channels are a primary text source. A daily or weekly LLM digest is planned.
+- Check frequency varies by service. Proactive polls default to hourly or every few hours;
+  push sources are event-driven. Tune during testing.
+- Target 1080p and web view. TVs pair through an admin-issued code and get no user account.
+- Noise controls: **False alarm** and **Park** (section 2).
+
+**Still open**
+
+1. **Servers:** is NinjaOne the source of truth for Windows and Linux servers and VMware
+   hosts, or do we need direct checks? (TBD)
+2. **Snooze rules:** who can snooze, maximum length, and whether a note is required.
+3. **Classifier hosting:** can alert text go to a hosted model, or must it run locally?
+4. **Hosting and SSO:** where it runs and which identity provider to use.
+5. **Sound:** should a new DOWN chime on the board?

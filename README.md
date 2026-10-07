@@ -9,4 +9,5 @@ compressed-time history. Every card links straight to the source.
 - **Prototype:** open [`prototype/index.html`](prototype/index.html) in a browser. It
   needs no build step and uses simulated data with a scripted demo feed. Keys `1` `2` `3`
   switch between Cards, List and Board; `F` goes fullscreen on the board. Append
-  `#board` to the URL to open straight into the TV view.
+  `#board` to the URL to open straight into the TV view, or `#pair` for the screen an
+  unpaired TV sees (use **Allow a board** to get a code).

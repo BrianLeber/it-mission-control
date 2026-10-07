@@ -32,6 +32,7 @@
 }
 html, body { height: 100%; }
 [hidden] { display: none !important; }
+body { margin: 0; }
 body {
   background-color: var(--bg);
   background-image:
@@ -183,7 +184,7 @@ button, a { color: inherit; font: inherit; }
 }
 
 /* ---------- board (TV) view ---------- */
-body.board .wrap { max-width: none; }
+body.board .wrap { max-width: none; padding-block-end: 12px; }
 body.board .controls .demo-only { display: none; }
 .board-attn { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
 .board-attn .card { padding: 18px 20px 14px; gap: 12px; }
@@ -239,6 +240,49 @@ body.board .controls .demo-only { display: none; }
 .legend i { font-style: normal; color: var(--s); }
 .demo-note { font-family: var(--f-data); font-size: 11px; color: var(--faint); }
 
+[data-state="false"] { --s: var(--stale); }
+.cell[data-state="false"] { opacity: .5; }
+
+/* parked: known, deferred, not worth a light */
+.card.parked, .tile.parked { border-color: var(--line); border-style: dashed; box-shadow: none; animation: none; background-image: none; }
+.card.parked .c-state { color: var(--dim); }
+.card.parked .c-msg { color: var(--dim); }
+.parked-tag { font-family: var(--f-data); font-size: 11px; font-weight: 500; letter-spacing: .04em; color: var(--dim); border: 1px solid var(--faint); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+.under { color: var(--s); white-space: nowrap; }
+.row.parked .namepill { border-color: var(--faint); border-style: dashed; box-shadow: none; }
+.row.parked .st { color: var(--dim); }
+.led[data-parked] { background: var(--faint); opacity: .5; box-shadow: none; }
+.counts .pk { color: var(--dim); }
+
+/* allow-a-board popover and pairing page */
+.controls { position: relative; }
+.popover { position: absolute; top: calc(100% + 8px); right: 0; width: min(360px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; z-index: 25; box-shadow: 0 14px 34px rgb(0 0 0 / .55); }
+.code { font-family: var(--f-data); font-weight: 600; font-size: 34px; letter-spacing: .18em; text-align: center; padding: 10px; border: 1px dashed var(--faint); border-radius: var(--r); font-variant-numeric: tabular-nums; }
+.small { font-size: 14px; color: var(--dim); margin: 0; }
+.field { display: grid; gap: 4px; }
+.field span { font-family: var(--f-data); font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+.field input, .field select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r); padding: 7px 9px; font: inherit; font-size: 14px; min-width: 0; }
+.paired { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-family: var(--f-data); font-size: 12px; }
+.paired li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.linkbtn { background: none; border: 0; color: var(--dim); text-decoration: underline; cursor: pointer; padding: 0; font-family: var(--f-data); font-size: 12px; }
+.linkbtn:hover { color: var(--fg); }
+.pair { min-height: 70vh; display: grid; place-items: center; }
+.pair form { display: grid; gap: 14px; width: min(460px, 100%); text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 30px 24px; }
+.pair h2 { font-family: var(--f-display); font-weight: 700; font-size: 26px; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.pair input { font-family: var(--f-data); font-size: 34px; letter-spacing: .22em; text-align: center; text-transform: uppercase; background: var(--bg); color: var(--fg); border: 2px solid var(--line); border-radius: var(--r); padding: 10px; width: 100%; min-width: 0; }
+.pair input:focus { border-color: var(--ok); outline: none; }
+.pair .err { color: var(--crit); min-height: 1.3em; margin: 0; font-family: var(--f-data); font-size: 13px; }
+body.pairing .meter, body.pairing .controls, body.pairing .legend, body.pairing .demo-note,
+body.kiosk .controls, body.kiosk .demo-note, body.board .legend, body.board .demo-note { display: none; }
+.kiosk-tag { font-family: var(--f-data); font-size: 12px; color: var(--dim); border: 1px solid var(--line); border-radius: 3px; padding: 2px 6px; white-space: nowrap; }
+
+/* panel: snooze and park */
+.snooze { display: inline-flex; border: 1px solid var(--ack); border-radius: var(--r); overflow: hidden; }
+.snooze span { padding: 7px 10px; font-family: var(--f-display); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--ack); }
+.snooze button { background: transparent; border: 0; border-left: 1px solid var(--ack); color: var(--ack); padding: 7px 10px; cursor: pointer; font-family: var(--f-data); font-size: 13px; }
+.snooze button:hover { background: color-mix(in srgb, var(--ack) 15%, transparent); }
+.park-form { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); }
+
 @media (prefers-reduced-motion: reduce) {
   .card[data-state="crit"] { animation: none; }
   .flash::after { animation: none; opacity: 0; }
@@ -252,7 +296,7 @@ body.board .controls .demo-only { display: none; }
 
 <div class="wrap">
   <header class="top">
-    <div class="brand"><h1>Mission Control</h1><span class="clock" id="clock">--:--:--</span></div>
+    <div class="brand"><h1>Mission Control</h1><span class="clock" id="clock">--:--:--</span><span class="kiosk-tag" id="kiosk-tag" hidden></span></div>
     <div class="meter" aria-label="All checks by state">
       <div class="leds" id="leds"></div>
       <div class="counts" id="counts"></div>
@@ -266,13 +310,15 @@ body.board .controls .demo-only { display: none; }
       <button class="toggle" id="t-focus" aria-pressed="true" title="Bring issues to the top"><span class="dot"></span>Auto-focus</button>
       <button class="toggle demo-only" id="t-demo" aria-pressed="true" title="Play scripted status changes"><span class="dot"></span>Demo feed</button>
       <button class="toggle demo-only" id="b-step" aria-pressed="false" title="Apply the next scripted change now">Next event ›</button>
+      <button class="toggle" id="b-allow" aria-expanded="false" aria-controls="allow" title="Give a TV or shared screen read-only access">Allow a board</button>
+      <div class="popover" id="allow" hidden></div>
     </div>
   </header>
 
   <main id="main"></main>
 
   <footer class="legend" id="legend"></footer>
-  <p class="demo-note">Prototype with simulated data. History strip, left to right: 3 weeks in week cells, 6 days in day cells, 23 hours in hour cells, the last hour in 2-minute cells. Faint cells are healthy; brighter cells mean more of that period was affected.</p>
+  <p class="demo-note">Prototype with simulated data. Polls default to hourly and speed up to every 5 minutes while a check is not operational. History strip, left to right: 3 weeks in week cells, 6 days in day cells, 23 hours in hour cells, the last hour in 2-minute cells. Faint cells are healthy; brighter cells mean more of that period was affected.</p>
 </div>
 
 <div class="scrim" id="scrim" hidden></div>
@@ -286,8 +332,9 @@ const STATES = {
   crit:  { rank: 6, label: "DOWN",         short: "DOWN",  glyph: "◆" },
   warn:  { rank: 5, label: "DEGRADED",     short: "DEGR",  glyph: "▲" },
   stale: { rank: 4, label: "NO SIGNAL",    short: "NOSIG", glyph: "○" },
-  ack:   { rank: 3, label: "ACKNOWLEDGED", short: "ACK",   glyph: "■" },
+  ack:   { rank: 3, label: "SNOOZED",      short: "SNZ",   glyph: "■" },
   maint: { rank: 2, label: "MAINTENANCE",  short: "MAINT", glyph: "◇" },
+  false: { rank: 1.5, label: "FALSE ALARM", short: "FALSE", glyph: "×" },
   ok:    { rank: 1, label: "OPERATIONAL",  short: "OK",    glyph: "●" },
 };
 const ORDER = ["crit", "warn", "stale", "ack", "maint", "ok"];
@@ -302,34 +349,35 @@ const ago = ms => Date.now() - ms;
 
 function seedChecks() {
   const c = [
-    { id: "slack", name: "Slack", group: "Public SaaS", mono: "Sl", brand: "#611f69", src: "poll 60s", via: "Slack status API", url: "https://slack-status.com/",
+    { id: "slack", name: "Slack", group: "Public SaaS", mono: "Sl", brand: "#611f69", src: "poll 1h", via: "Slack status API", url: "https://slack-status.com/",
       state: "ok", since: ago(6 * MIN), msg: "All services operational", peak: { state: "crit", at: ago(6 * MIN), dur: 9 * MIN },
       inc: [[15 * MIN, 9 * MIN, "crit"], [3 * DAY, 2 * HR, "warn"], [17 * DAY, 40 * MIN, "warn"]] },
-    { id: "zoom", name: "Zoom", group: "Public SaaS", mono: "Zm", brand: "#0b5cff", src: "poll 60s", via: "Statuspage API", url: "https://status.zoom.us/",
+    { id: "zoom", name: "Zoom", group: "Public SaaS", mono: "Zm", brand: "#0b5cff", src: "poll 1h", via: "Statuspage API", url: "https://status.zoom.us/",
       state: "maint", since: ago(25 * MIN), msg: "Zoom Phone scheduled maintenance, ends 21:00", openState: "maint",
       inc: [[9 * DAY, 3 * HR, "maint"]] },
-    { id: "m365", name: "Microsoft 365", group: "Public SaaS", mono: "365", brand: "#c43e1c", src: "poll 5m", via: "Graph service health", url: "https://admin.microsoft.com/#/servicehealth",
+    { id: "m365", name: "Microsoft 365", group: "Public SaaS", mono: "365", brand: "#c43e1c", src: "poll 1h", via: "Graph service health", url: "https://admin.microsoft.com/#/servicehealth",
       state: "warn", since: ago(23 * MIN), msg: "EX918273: Some users may see delays receiving external email", openState: "warn",
       inc: [[2 * DAY, 5 * HR, "warn"], [12 * DAY, 90 * MIN, "crit", true], [20 * DAY, 4 * HR, "warn"]] },
-    { id: "okta", name: "Okta", group: "Public SaaS", mono: "Ok", brand: "#2b2bd6", src: "poll 60s", via: "Status RSS", url: "https://status.okta.com/",
+    { id: "okta", name: "Okta", group: "Public SaaS", mono: "Ok", brand: "#2b2bd6", src: "poll 1h", via: "Status RSS", url: "https://status.okta.com/",
       state: "ok", since: ago(11 * DAY), msg: "All systems operational", inc: [[11 * DAY, 35 * MIN, "warn"]] },
-    { id: "gws", name: "Google Workspace", group: "Public SaaS", mono: "G", brand: "#1a73e8", src: "poll 5m", via: "Status JSON feed", url: "https://www.google.com/appsstatus/dashboard/",
+    { id: "gws", name: "Google Workspace", group: "Public SaaS", mono: "G", brand: "#1a73e8", src: "poll 1h", via: "Status JSON feed", url: "https://www.google.com/appsstatus/dashboard/",
       state: "ok", since: ago(5 * DAY), msg: "No active incidents", inc: [[5 * DAY, 3 * HR, "warn"]] },
-    { id: "github", name: "GitHub", group: "Public SaaS", mono: "GH", brand: "#24292f", src: "poll 60s", via: "Statuspage API", url: "https://www.githubstatus.com/",
+    { id: "github", name: "GitHub", group: "Public SaaS", mono: "GH", brand: "#24292f", src: "poll 1h", via: "Statuspage API", url: "https://www.githubstatus.com/",
       state: "ok", since: ago(2 * DAY), msg: "All systems operational", inc: [[2 * DAY, 70 * MIN, "crit", true], [8 * DAY, 2 * HR, "warn"], [24 * DAY, 30 * MIN, "warn"]] },
 
-    { id: "jamf", name: "Jamf Pro", group: "Our platforms", mono: "J", brand: "#3f4a59", src: "api 2m", via: "Jamf Pro API", url: "https://example.jamfcloud.com/",
+    { id: "jamf", name: "Jamf Pro", group: "Our platforms", mono: "J", brand: "#3f4a59", src: "api 1h", via: "Jamf Pro API", url: "https://example.jamfcloud.com/",
       state: "ok", since: ago(26 * DAY), msg: "Health check OK · 1,284 devices checked in within 24h", inc: [[26 * DAY, 20 * MIN, "crit"]] },
-    { id: "ninja", name: "NinjaOne", group: "Our platforms", mono: "N1", brand: "#1c6b4a", src: "api 2m", via: "NinjaOne API", url: "https://app.ninjarmm.com/",
+    { id: "ninja", name: "NinjaOne", group: "Our platforms", mono: "N1", brand: "#1c6b4a", src: "api 1h", via: "NinjaOne API", url: "https://app.ninjarmm.com/",
       state: "ok", since: ago(15 * DAY), msg: "API reachable · 3 open device alerts", inc: [[15 * DAY, 45 * MIN, "warn"]] },
-    { id: "front", name: "Front · IT queue", group: "Our platforms", mono: "F", brand: "#a23ce0", src: "api 5m", via: "Front API snapshot", url: "https://app.frontapp.com/",
+    { id: "front", name: "Front · IT queue", group: "Our platforms", mono: "F", brand: "#a23ce0", src: "api 1h", via: "Front API snapshot", url: "https://app.frontapp.com/",
       state: "warn", since: ago(41 * MIN), msg: "3 conversations past SLA · 17 open · oldest 6h 10m", openState: "warn",
       inc: [[1 * DAY + 3 * HR, 2 * HR, "warn"], [4 * DAY, 3 * HR, "warn"], [6 * DAY, 1 * HR, "warn"], [13 * DAY, 4 * HR, "warn"]] },
 
-    { id: "vcenter", name: "vCenter", group: "Infrastructure", mono: "vC", brand: "#1d428a", src: "api 2m", via: "vSphere REST API", url: "https://vcenter.example.local/ui/",
+    { id: "vcenter", name: "vCenter", group: "Infrastructure", mono: "vC", brand: "#1d428a", src: "api 1h", via: "vSphere REST API", url: "https://vcenter.example.local/ui/",
       state: "ok", since: ago(19 * DAY), msg: "3 hosts · 42 VMs · 0 triggered alarms", inc: [[19 * DAY, 6 * HR, "maint"]] },
     { id: "fs01", name: "FS01", group: "Infrastructure", mono: "FS", brand: "#00597a", src: "webhook", via: "NinjaOne alert webhook", url: "https://app.ninjarmm.com/",
-      state: "ack", since: ago(72 * MIN), msg: "Disk D: 92% used · acknowledged by Brian L.", ackBy: "Brian L.", openState: "ack",
+      state: "ack", since: ago(72 * MIN), msg: "Disk D: 92% used · snoozed by Brian L.", openState: "ack",
+      snooze: { by: "Brian L.", note: "Archiving old scans tonight", until: Date.now() + 168 * MIN, prior: "warn" },
       inc: [[3 * HR, 108 * MIN, "warn"]] },
     { id: "dc01", name: "DC01", group: "Infrastructure", mono: "DC", brand: "#00597a", src: "webhook", via: "NinjaOne alert webhook", url: "https://app.ninjarmm.com/",
       state: "ok", since: ago(21 * DAY), msg: "AD DS, DNS and Netlogon running", inc: [[21 * DAY, 25 * MIN, "maint"]] },
@@ -341,6 +389,10 @@ function seedChecks() {
     { id: "nas", name: "backup-nas", group: "Infrastructure", mono: "NAS", brand: "#3b3b3b", src: "ping 5m", via: "Heartbeat from cron", url: "https://backup-nas.example.local/",
       state: "stale", since: ago(14 * MIN), msg: "No heartbeat for 14m (expected every 5m)", openState: "stale",
       inc: [[10 * DAY, 30 * MIN, "stale"]] },
+    { id: "ap3f", name: "AP-3F-East", group: "Infrastructure", mono: "AP", brand: "#2a5d6e", src: "slack", via: "Slack #it-network-alerts", url: "https://app.slack.com/",
+      state: "crit", since: ago(7 * MIN), msg: "Access point offline (alert posted in #it-network-alerts)", openState: "crit",
+      parked: { by: "Brian L.", at: ago(9 * DAY), until: "Dec 22", reason: "Flaps most evenings with no user impact. Replace over winter break." },
+      inc: [[52 * MIN, 6 * MIN, "crit"], [31 * MIN, 4 * MIN, "crit"], ...Array.from({ length: 24 }, (_, k) => [(k + 1) * DAY - (k % 3) * HR, (12 + (k * 7) % 30) * MIN, "crit"])] },
     { id: "ups", name: "UPS · Server room", group: "Infrastructure", mono: "UPS", brand: "#5a4a10", src: "email", via: "Email alerts, parsed", url: "https://ups.example.local/",
       state: "ok", since: ago(3 * DAY), msg: "On utility power · self-test passed", inc: [[3 * DAY, 20 * MIN, "crit", true], [22 * DAY, 10 * MIN, "warn"]] },
   ];
@@ -352,11 +404,11 @@ function seedChecks() {
     if (s.openState) s.incidents.push({ start: s.since, end: null, state: s.openState });
     if (s.id === "fs01") s.incidents = [{ start: ago(3 * HR), end: ago(72 * MIN), state: "warn" }, { start: ago(72 * MIN), end: null, state: "ack" }];
     const iv = parseInt(s.src.match(/(\d+)(m|s)/)?.[1] || "2", 10) * (/s$/.test(s.src) ? 1000 : MIN);
-    s.interval = s.src === "email" ? null : s.src === "webhook" ? 5 * MIN : iv;
+    s.interval = ["email", "slack"].includes(s.src) ? null : s.src === "webhook" ? 5 * MIN : iv;
     s.lastSeen = s.state === "stale" ? ago(14 * MIN) : Date.now() - Math.floor(r() * (s.interval || 4 * HR));
-    if (s.src === "email" && s.openState) s.lastSeen = s.since;
+    if (!s.interval && s.openState) s.lastSeen = s.since;
     s.log = seedLog(s);
-    s.flash = s.state === "crit" || s.state === "warn";
+    s.flash = (s.state === "crit" || s.state === "warn") && !s.parked;
   }
   return c;
 }
@@ -371,7 +423,8 @@ function seedLog(s) {
   }
   if (s.id === "veeam") { add(ago(6 * HR + 12 * MIN), "crit", "Email: \"[Failed] Nightly-VMs (2 VMs failed)\" from veeam@example.local", "Mail rule: veeam-job-result"); }
   if (s.id === "m365") { add(ago(23 * MIN), "warn", "EX918273 opened: Exchange Online, delays receiving external email"); add(ago(8 * MIN), "warn", "EX918273 updated: Microsoft is reviewing mail flow telemetry"); }
-  if (s.id === "fs01") { add(ago(72 * MIN), "ack", "Acknowledged by Brian L.: \"Archiving old scans tonight\"", "Mission Control"); }
+  if (s.id === "fs01") add(ago(72 * MIN), "ack", "Snoozed 4h by Brian L.: \"Archiving old scans tonight\"", "Mission Control");
+  if (s.id === "ap3f") { add(ago(9 * DAY) + 5 * MIN, "ok", "Parked by Brian L. until Dec 22: flaps most evenings, no user impact", "Mission Control"); add(ago(7 * MIN), "crit", "\"AP-3F-East went offline\" in #it-network-alerts", "Slack channel rule: meraki-ap"); }
   if (s.id === "front") add(ago(41 * MIN), "warn", "Snapshot: 3 past SLA (threshold 1)", "Front API snapshot");
   if (s.id === "zoom") add(ago(25 * MIN), "maint", "Scheduled maintenance started: Zoom Phone, 20:00–21:00");
   if (s.id === "nas") add(ago(14 * MIN), "stale", "Heartbeat overdue (grace 2× interval)", "Heartbeat monitor");
@@ -383,11 +436,13 @@ const SCRIPT = [
   ["github", "warn", "Incident: Degraded performance for GitHub Actions", "Statuspage API"],
   ["veeam", "ok", "Email: \"[Success] Nightly-VMs (retry)\" closed the open failure", "Mail rule: veeam-job-result"],
   ["github", "crit", "Incident escalated: GitHub Actions unavailable", "Statuspage API"],
+  ["ap3f", "ok", "\"AP-3F-East is back online\" in #it-network-alerts", "Slack channel rule: meraki-ap"],
   ["nas", "ok", "Heartbeat received", "Heartbeat monitor"],
   ["zoom", "ok", "Scheduled maintenance completed", "Statuspage API"],
   ["web01", "crit", "Missed 3 heartbeats in a row", "Heartbeat monitor"],
   ["m365", "ok", "EX918273 resolved: mail flow restored", "Graph service health"],
   ["web01", "ok", "Heartbeat received", "Heartbeat monitor"],
+  ["ap3f", "crit", "\"AP-3F-East went offline\" in #it-network-alerts", "Slack channel rule: meraki-ap"],
   ["github", "ok", "Resolved: GitHub Actions operating normally", "Statuspage API"],
   ["front", "ok", "Snapshot: 0 past SLA · 12 open", "Front API snapshot"],
   ["okta", "warn", "Classifier: email \"Okta Verify push delays\" matched Okta (0.91)", "Email · model classifier"],
@@ -401,21 +456,22 @@ let openId = null;
 const changes = []; // recent transitions for the board ticker
 
 // --- state changes
-function apply(id, state, msg, origin) {
+function apply(id, state, msg, origin, opts = {}) {
   const s = checks.find(c => c.id === id); if (!s || s.state === state) return;
   const now = Date.now(), prev = s.state;
   const open = s.incidents.find(i => i.end === null);
   if (open) open.end = now;
   if (state !== "ok") s.incidents.push({ start: now, end: null, state });
-  if (state === "ok" && STATES[prev].rank >= STATES.ack.rank) {
+  if (state !== "ack") s.snooze = null; // any new or worse signal re-arms a snoozed check
+  if (state === "ok" && STATES[prev].rank >= STATES.ack.rank && !s.parked && !opts.noPeak) {
     const peakState = (s.peak && now - s.peak.at < PEAK_HOLD && STATES[s.peak.state].rank > STATES[prev].rank) ? s.peak.state : (prev === "ack" ? "warn" : prev);
     s.peak = { state: peakState === "stale" ? "warn" : peakState, at: now, dur: now - s.since };
   }
-  changes.unshift({ t: now, id, name: s.name, from: prev, to: state, dur: now - s.since });
+  if (!s.parked) changes.unshift({ t: now, id, name: s.name, from: prev, to: state, dur: now - s.since });
   changes.length = Math.min(changes.length, 8);
   s.state = state; s.since = now; s.msg = msg.replace(/^(Email|Classifier): /, ""); s.lastSeen = now;
-  s.log.unshift({ t: now, state, m: msg, o: origin });
-  s.flash = state === "crit" || state === "warn";
+  s.log.unshift({ t: now, state: opts.logState || state, m: msg, o: origin });
+  s.flash = (state === "crit" || state === "warn") && !s.parked;
   render();
 }
 
@@ -475,7 +531,7 @@ const esc = x => String(x).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 
 // --- pieces
 function peakHTML(s, kind) {
-  if (!s.peak || s.state !== "ok") return "";
+  if (!s.peak || s.state !== "ok" || s.parked) return "";
   const age = Date.now() - s.peak.at; if (age > PEAK_HOLD) return "";
   const fade = (1 - 0.6 * age / PEAK_HOLD).toFixed(2);
   const pk = `var(--${s.peak.state})`;
@@ -483,45 +539,60 @@ function peakHTML(s, kind) {
   return kind === "card" ? { tag, notch: `<span class="peak-notch" style="--pk:${pk};opacity:${fade}"></span>` } : tag;
 }
 function seenText(s) {
+  if (s.src === "slack") return `last post <span data-ago="${s.lastSeen}">${fmtDur(Date.now() - s.lastSeen)}</span> ago`;
   if (s.src === "email") return `last mail <span data-ago="${s.lastSeen}">${fmtDur(Date.now() - s.lastSeen)}</span> ago`;
   return `seen <span data-ago="${s.lastSeen}">${fmtDur(Date.now() - s.lastSeen)}</span> ago`;
 }
+// polled checks speed up while something is wrong
+const isPolled = s => /^(poll|api) /.test(s.src);
+const fast = s => isPolled(s) && s.state !== "ok" && s.state !== "maint" && !s.parked;
+const srcLabel = s => fast(s) ? `<span title="Polling every 5m until this clears (normally ${s.src.split(" ")[1]})">${s.src.split(" ")[0]} 5m ▴</span>` : s.src;
+function durHTML(s, row) {
+  if (s.parked) return `<span class="dur">until ${esc(s.parked.until)}</span>`;
+  if (s.state === "ack" && s.snooze) return `<span class="dur" data-until="${s.snooze.until}" title="Snooze time left">${fmtDur(s.snooze.until - Date.now())} left</span>`;
+  return `<span class="dur" data-since="${s.since}" title="Time in this state">${row ? "for " : ""}${fmtDur(Date.now() - s.since)}</span>`;
+}
+function stateHTML(s) {
+  const st = STATES[s.state];
+  if (s.parked) return `<span class="parked-tag">PARKED</span><span class="under"><span class="glyph">${st.glyph}</span> ${st.short}</span>`;
+  return `<span class="glyph">${st.glyph}</span>${st.label}`;
+}
 function cardHTML(s) {
   const st = STATES[s.state], pk = peakHTML(s, "card") || {};
-  return `<article class="card" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${st.label}">
+  return `<article class="card${s.parked ? " parked" : ""}" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${s.parked ? "parked, " : ""}${st.label}">
     ${pk.notch || ""}
     <div class="c-head">
       <span class="mono" style="--brand:${s.brand}">${s.mono}</span>
-      <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">${s.group} · ${s.src}</span></div>
+      <div class="c-title"><h3>${esc(s.name)}</h3><span class="c-sub">${s.group} · ${srcLabel(s)}</span></div>
       ${pk.tag || ""}
     </div>
-    <div class="c-state"><span class="glyph">${st.glyph}</span>${st.label}<span class="dur" data-since="${s.since}" title="Time in this state">${fmtDur(Date.now() - s.since)}</span></div>
-    <p class="c-msg">${esc(s.msg)}</p>
+    <div class="c-state">${stateHTML(s)}${durHTML(s)}</div>
+    <p class="c-msg">${esc(s.parked ? s.parked.reason : s.msg)}</p>
     ${histHTML(s, "card")}
     <div class="c-foot"><span>${seenText(s)}</span><a href="${s.url}" target="_blank" rel="noopener" data-stop>source ↗</a></div>
   </article>`;
 }
 function rowHTML(s) {
   const st = STATES[s.state];
-  return `<div class="row" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${st.label}">
+  return `<div class="row${s.parked ? " parked" : ""}" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${s.parked ? "parked, " : ""}${st.label}">
     ${peakHTML(s, "row")}
     <span class="namepill"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}</b></span>
-    <span class="st"><span><span class="glyph">${st.glyph}</span> ${st.label}</span><span class="dur" data-since="${s.since}">for ${fmtDur(Date.now() - s.since)}</span></span>
-    <span class="msg" title="${esc(s.msg)}">${esc(s.msg)}</span>
+    <span class="st"><span>${stateHTML(s)}</span>${durHTML(s, true)}</span>
+    <span class="msg" title="${esc(s.parked ? s.parked.reason : s.msg)}">${esc(s.parked ? s.parked.reason : s.msg)}</span>
     ${histHTML(s, "wide")}
     <span class="seen">${seenText(s)}</span>
   </div>`;
 }
 function tileHTML(s) {
   const st = STATES[s.state];
-  return `<div class="tile" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${st.label}">
-    <div class="t-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}</b>${peakHTML(s, "row") || `<span class="glyph">${st.glyph}</span>`}</div>
+  return `<div class="tile${s.parked ? " parked" : ""}" data-id="${s.id}" data-state="${s.state}" tabindex="0" role="button" aria-label="${esc(s.name)}: ${s.parked ? "parked, " : ""}${st.label}">
+    <div class="t-head"><span class="mono" style="--brand:${s.brand}">${s.mono}</span><b>${esc(s.name)}</b>${s.parked ? `<span class="parked-tag">PARKED</span>` : ""}${peakHTML(s, "row") || `<span class="glyph">${st.glyph}</span>`}</div>
     ${histHTML(s, "tile")}
   </div>`;
 }
 
-const rank = s => STATES[s.state].rank;
-const needsEye = s => ["crit", "warn", "stale", "ack"].includes(s.state);
+const rank = s => s.parked ? 0 : STATES[s.state].rank;
+const needsEye = s => !s.parked && ["crit", "warn", "stale", "ack"].includes(s.state);
 const bySeverity = (a, b) => rank(b) - rank(a) || b.since - a.since;
 function section(title, count, body) {
   return `<section class="section"><h2 class="section-h"><b>${title}</b>${count != null ? `<span>${count}</span>` : ""}<span class="rule"></span></h2>${body}</section>`;
@@ -530,8 +601,8 @@ function section(title, count, body) {
 function renderCards() {
   if (!autoFocus) return GROUPS.map(g => { const l = checks.filter(c => c.group === g); return section(g, l.length, `<div class="grid">${l.map(cardHTML).join("")}</div>`); }).join("");
   const attn = checks.filter(needsEye).sort(bySeverity);
-  const planned = checks.filter(c => c.state === "maint");
-  const calm = c => c.state === "ok";
+  const planned = checks.filter(c => c.state === "maint" && !c.parked);
+  const calm = c => c.state === "ok" && !c.parked;
   let h = "";
   if (attn.length) h += section("Needs attention", attn.length, `<div class="grid">${attn.map(cardHTML).join("")}</div>`);
   if (planned.length) h += section("Planned", planned.length, `<div class="grid">${planned.map(cardHTML).join("")}</div>`);
@@ -539,6 +610,8 @@ function renderCards() {
     const l = checks.filter(c => c.group === g && calm(c)).sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0));
     if (l.length) h += section(g, `${l.length} operational`, `<div class="grid">${l.map(cardHTML).join("")}</div>`);
   }
+  const parked = checks.filter(c => c.parked);
+  if (parked.length) h += section("Parked", parked.length, `<div class="grid">${parked.map(cardHTML).join("")}</div>`);
   return h;
 }
 function renderList() {
@@ -547,13 +620,15 @@ function renderList() {
   return `${head}<div class="list">${[...checks].sort(bySeverity).map(rowHTML).join("")}</div>`;
 }
 function renderBoard() {
-  const attn = checks.filter(c => needsEye(c) || c.state === "maint").sort(bySeverity);
-  const calm = checks.filter(c => !attn.includes(c));
+  const attn = checks.filter(c => needsEye(c) || (c.state === "maint" && !c.parked)).sort(bySeverity);
+  const parked = checks.filter(c => c.parked);
+  const calm = checks.filter(c => !attn.includes(c) && !c.parked);
   let h = attn.length
     ? `<div class="board-attn">${attn.map(cardHTML).join("")}</div>`
     : `<div class="all-clear">ALL SYSTEMS OPERATIONAL</div>`;
   h = section(attn.length ? "Attention" : "Status", attn.length || null, h);
   h += section("Operational", calm.length, `<div class="board-calm">${calm.sort((a, b) => (b.peak?.at || 0) - (a.peak?.at || 0) || GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group)).map(tileHTML).join("")}</div>`);
+  if (parked.length) h += section("Parked", parked.length, `<div class="board-calm">${parked.map(tileHTML).join("")}</div>`);
   const tk = changes.length ? changes : [];
   h += `<div class="ticker" aria-label="Recent changes">${tk.length ? tk.map(c => `<span class="tk" data-state="${c.to}">${fmtClock(c.t)} ${esc(c.name)} <i>${STATES[c.to].glyph} ${STATES[c.to].short}</i>${c.to === "ok" ? ` after ${fmtDur(c.dur)}` : ""}</span>`).join("") : `<span class="tk">No changes since this screen loaded.</span>`}</div>`;
   return h;
@@ -561,13 +636,16 @@ function renderBoard() {
 
 function renderTop() {
   const sorted = [...checks].sort(bySeverity);
-  document.getElementById("leds").innerHTML = sorted.map(s => `<span class="led" data-state="${s.state}" title="${esc(s.name)}: ${STATES[s.state].label}"></span>`).join("");
-  document.getElementById("counts").innerHTML = ORDER.map(k => { const n = checks.filter(c => c.state === k).length; return `<span data-state="${k}"${n ? "" : " data-zero"} title="${STATES[k].label}">${STATES[k].glyph} ${n}</span>`; }).join("");
+  document.getElementById("leds").innerHTML = sorted.map(s => `<span class="led" data-state="${s.state}"${s.parked ? " data-parked" : ""} title="${esc(s.name)}: ${s.parked ? "parked" : STATES[s.state].label}"></span>`).join("");
+  const live = checks.filter(c => !c.parked), np = checks.length - live.length;
+  document.getElementById("counts").innerHTML = ORDER.map(k => { const n = live.filter(c => c.state === k).length; return `<span data-state="${k}"${n ? "" : " data-zero"} title="${STATES[k].label}">${STATES[k].glyph} ${n}</span>`; }).join("")
+    + (np ? `<span class="pk" title="Parked">‖ ${np}</span>` : "");
 }
 
 // FLIP so re-ordering reads as movement rather than a jump
 function render() {
   const main = document.getElementById("main");
+  if (view === "pair") { if (!document.getElementById("pair-form")) renderPair(); return; }
   const before = new Map([...main.querySelectorAll("[data-id]")].map(el => [el.dataset.id, el.getBoundingClientRect()]));
   main.innerHTML = view === "cards" ? renderCards() : view === "list" ? renderList() : renderBoard();
   renderTop();
@@ -599,24 +677,60 @@ function renderPanel() {
       <div>${esc(s.msg)}</div>
       <div class="actions">
         <a class="btn primary" href="${s.url}" target="_blank" rel="noopener">Open source ↗</a>
-        ${["crit", "warn", "stale"].includes(s.state) ? `<button class="btn ack" id="p-ack">Acknowledge</button>` : ""}
+        ${["crit", "warn", "stale"].includes(s.state) && !s.parked ? `<div class="snooze" role="group" aria-label="Snooze"><span>Snooze</span><button data-snz="15">15m</button><button data-snz="60">1h</button><button data-snz="240">4h</button></div>` : ""}
+        ${s.state === "ack" && s.snooze ? `<button class="btn ack" id="p-wake">End snooze</button>` : ""}
+        ${s.state !== "ok" && s.state !== "maint" ? `<button class="btn" id="p-false" title="Close this alert and record it as noise">False alarm</button>` : ""}
         ${s.state !== "ok" ? `<button class="btn" id="p-clear">Clear manually</button>` : ""}
+        ${s.parked ? `<button class="btn" id="p-unpark">Unpark</button>` : `<button class="btn" id="p-park" aria-expanded="false" aria-controls="park-form">Park…</button>`}
       </div>
+      <form class="park-form" id="park-form" hidden>
+        <p class="small">Parked checks keep recording history but stop lighting the board. Use this for known issues that can wait.</p>
+        <label class="field"><span>Why it can wait</span><input id="park-reason" placeholder="e.g. Flaps nightly, no user impact"></label>
+        <label class="field"><span>Park until</span><select id="park-until"><option>Tomorrow</option><option>1 week</option><option>Dec 22 (winter break)</option><option>I unpark it</option></select></label>
+        <div class="actions"><button class="btn primary" type="submit">Park check</button></div>
+      </form>
     </div>
     <div class="p-body">
       <dl class="facts">
         <dt>Signal</dt><dd>${s.via} · ${s.src}</dd>
         <dt>Last heard</dt><dd>${fmtStamp(s.lastSeen)} (${seenText(s)})</dd>
         <dt>In state since</dt><dd>${fmtStamp(s.since)}</dd>
-        ${open ? `<dt>Incident</dt><dd>open ${fmtDur(Date.now() - open.start)}${s.state === "ack" ? ` · ack by ${s.ackBy || "you"}` : ""}</dd>` : ""}
+        ${open ? `<dt>Incident</dt><dd>open ${fmtDur(Date.now() - open.start)}</dd>` : ""}
+        ${s.snooze ? `<dt>Snoozed</dt><dd>by ${esc(s.snooze.by)} until ${fmtClock(s.snooze.until)}${s.snooze.note ? ` · "${esc(s.snooze.note)}"` : ""}. Lights up again if it is still open then, or sooner if it gets worse.</dd>` : ""}
+        ${s.parked ? `<dt>Parked</dt><dd>by ${esc(s.parked.by)} ${fmtStamp(s.parked.at)}, until ${esc(s.parked.until)}: ${esc(s.parked.reason)}</dd>` : ""}
         ${s.peak && Date.now() - s.peak.at < PEAK_HOLD && s.state === "ok" ? `<dt>Peak hold</dt><dd>${STATES[s.peak.state].label.toLowerCase()} for ${fmtDur(s.peak.dur)}, cleared ${fmtStamp(s.peak.at)}</dd>` : ""}
       </dl>
       <div><h4 class="p-sub">History · 4 weeks, newest at right</h4>${histHTML(s, "wide")}</div>
       <div><h4 class="p-sub">Signal log</h4><ol class="log">${s.log.slice(0, 40).map(e => `<li data-state="${e.state}"><time>${fmtStamp(e.t)}</time><span class="glyph">${STATES[e.state].glyph}</span><span class="m">${esc(e.m)}<span class="o">${esc(e.o)}</span></span></li>`).join("")}</ol></div>
     </div>`;
   document.getElementById("p-close").onclick = closePanel;
-  const ack = document.getElementById("p-ack"); if (ack) ack.onclick = () => { s.ackBy = "you"; apply(s.id, "ack", `Acknowledged by you · ${s.msg}`, "Mission Control"); };
-  const clr = document.getElementById("p-clear"); if (clr) clr.onclick = () => apply(s.id, "ok", "Cleared manually", "Mission Control");
+  const $ = id => document.getElementById(id);
+  p.querySelectorAll("[data-snz]").forEach(b => b.onclick = () => {
+    const mins = +b.dataset.snz, prior = s.state;
+    apply(s.id, "ack", `Snoozed ${b.textContent} by you`, "Mission Control");
+    s.snooze = { by: "you", until: Date.now() + mins * MIN, prior };
+    render();
+  });
+  if ($("p-wake")) $("p-wake").onclick = () => apply(s.id, s.snooze.prior, "Snooze ended by you", "Mission Control");
+  if ($("p-false")) $("p-false").onclick = () => {
+    // repaint the whole alert chain (e.g. degraded, then snoozed) as noise
+    for (let o = s.incidents.find(i => i.end === null); o; o = s.incidents.find(i => i.end === o.start)) o.state = "false";
+    apply(s.id, "ok", "Marked as a false alarm by you. Logged as feedback for the alert rules.", "Mission Control", { noPeak: true, logState: "false" });
+  };
+  if ($("p-clear")) $("p-clear").onclick = () => apply(s.id, "ok", "Cleared manually", "Mission Control");
+  if ($("p-unpark")) $("p-unpark").onclick = () => {
+    s.parked = null; s.log.unshift({ t: Date.now(), state: s.state, m: "Unparked by you", o: "Mission Control" });
+    s.flash = s.state === "crit" || s.state === "warn"; render();
+  };
+  if ($("p-park")) $("p-park").onclick = e => { const f = $("park-form"); f.hidden = !f.hidden; e.currentTarget.setAttribute("aria-expanded", String(!f.hidden)); if (!f.hidden) $("park-reason").focus(); };
+  if ($("park-form")) $("park-form").onsubmit = e => {
+    e.preventDefault();
+    const reason = $("park-reason").value.trim() || "No reason given", until = $("park-until").value.replace(/ \(.*\)$/, "").replace("I unpark it", "unparked");
+    s.parked = { by: "you", at: Date.now(), until, reason };
+    if (s.state === "ack") s.snooze = null;
+    s.log.unshift({ t: Date.now(), state: s.state, m: `Parked by you until ${until}: ${reason}`, o: "Mission Control" });
+    render();
+  };
 }
 function openPanel(id) {
   openId = id; renderPanel();
@@ -641,6 +755,7 @@ document.getElementById("scrim").onclick = closePanel;
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && openId) closePanel();
   if (e.target.closest("input,textarea")) return;
+  if (kiosk || view === "pair") return;
   if (e.key === "1") setView("cards"); if (e.key === "2") setView("list"); if (e.key === "3") setView("board");
   if ((e.key === "f" || e.key === "F") && view === "board") document.documentElement.requestFullscreen?.().catch(() => {});
 });
@@ -649,7 +764,10 @@ function setView(v) {
   view = v;
   document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === v)));
   document.body.classList.toggle("board", v === "board");
-  try { localStorage.setItem("imc.view", v); } catch {}
+  document.body.classList.toggle("pairing", v === "pair");
+  if (v === "pair" && openId) closePanel();
+  if (v !== "pair" && document.getElementById("pair-form")) document.getElementById("main").innerHTML = "";
+  if (v !== "pair") try { localStorage.setItem("imc.view", v); } catch {}
   if (v === "board" && navigator.wakeLock && !wake) navigator.wakeLock.request("screen").then(w => { wake = w; w.addEventListener("release", () => wake = null); }).catch(() => {});
   render();
 }
@@ -658,12 +776,74 @@ document.getElementById("t-focus").onclick = e => { autoFocus = !autoFocus; e.cu
 document.getElementById("t-demo").onclick = e => { demo = !demo; e.currentTarget.setAttribute("aria-pressed", String(demo)); };
 document.getElementById("b-step").onclick = nextEvent;
 
+// --- "Allow a board": an admin mints a short-lived code; the TV trades it for a read-only session
+let kiosk = false;
+const paired = [{ name: "Lobby TV", at: Date.now() - 5 * DAY }, { name: "IT office", at: Date.now() - DAY }];
+let pairCode, pairExpires, pairName = "Conference room TV";
+function newCode() {
+  const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; let c = "";
+  for (let i = 0; i < 6; i++) c += A[Math.floor(Math.random() * A.length)];
+  pairCode = c.slice(0, 3) + "-" + c.slice(3); pairExpires = Date.now() + 10 * MIN;
+}
+newCode();
+const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+function renderAllow() {
+  const a = document.getElementById("allow");
+  a.innerHTML = `
+    <h2 class="p-sub" style="margin:0">Allow a status board</h2>
+    <label class="field"><span>Board name</span><input id="allow-name" value="${esc(pairName)}"></label>
+    <div class="code" id="allow-code">${pairCode}</div>
+    <p class="small">On the TV, open the board page and enter this code. It expires in <b id="allow-exp">${mmss(pairExpires - Date.now())}</b>. The board can view status but can't snooze, park or clear anything.</p>
+    <div class="actions"><button class="btn" id="allow-new">New code</button><a class="btn primary" href="#pair">Open pairing page</a></div>
+    <h3 class="p-sub" style="margin:4px 0 0">Paired boards</h3>
+    <ul class="paired">${paired.map((b, i) => `<li><span>${esc(b.name)} · paired ${fmtStamp(b.at)}</span><button class="linkbtn" data-revoke="${i}">Revoke</button></li>`).join("") || `<li>None yet</li>`}</ul>`;
+  document.getElementById("allow-name").oninput = e => pairName = e.target.value || "Status board";
+  document.getElementById("allow-new").onclick = () => { newCode(); renderAllow(); };
+  a.querySelectorAll("[data-revoke]").forEach(b => b.onclick = () => { paired.splice(+b.dataset.revoke, 1); renderAllow(); });
+}
+document.getElementById("b-allow").onclick = e => {
+  const a = document.getElementById("allow"); a.hidden = !a.hidden;
+  e.currentTarget.setAttribute("aria-expanded", String(!a.hidden));
+  if (!a.hidden) renderAllow();
+};
+function renderPair() {
+  const main = document.getElementById("main");
+  main.innerHTML = `<div class="pair"><form id="pair-form" autocomplete="off">
+    <h2>Connect this screen</h2>
+    <p class="small">Ask an admin to choose <b>Allow a board</b> in Mission Control, then type the code they see.</p>
+    <input id="pair-code" maxlength="7" aria-label="Pairing code" placeholder="XXX-XXX" spellcheck="false">
+    <p class="err" id="pair-err" role="alert"></p>
+    <button class="btn primary" type="submit">Connect</button>
+    <p class="small">Demo only: the current code is <b>${pairCode}</b>.</p>
+  </form></div>`;
+  const inp = document.getElementById("pair-code"); inp.focus();
+  document.getElementById("pair-form").onsubmit = e => {
+    e.preventDefault();
+    const norm = x => x.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (Date.now() > pairExpires) { document.getElementById("pair-err").textContent = "That code has expired. Ask for a new one."; return; }
+    if (norm(inp.value) !== norm(pairCode)) { document.getElementById("pair-err").textContent = "That code doesn't match. Check it and try again."; return; }
+    paired.push({ name: pairName, at: Date.now() }); newCode();
+    kiosk = true; document.body.classList.add("kiosk");
+    const tag = document.getElementById("kiosk-tag");
+    tag.innerHTML = `Read-only · ${esc(pairName)} <button class="linkbtn" id="k-exit">exit (demo)</button>`; tag.hidden = false;
+    document.getElementById("k-exit").onclick = () => { kiosk = false; document.body.classList.remove("kiosk"); tag.hidden = true; setView("cards"); };
+    history.replaceState(null, "", "#board");
+    setView("board");
+  };
+}
+addEventListener("hashchange", () => {
+  const h = location.hash.slice(1);
+  if (h === "pair") { document.getElementById("allow").hidden = true; setView("pair"); }
+  else if (["cards", "list", "board"].includes(h) && !kiosk) setView(h);
+});
+
 function nextEvent() {
   if (step >= SCRIPT.length) { checks = seedChecks(); step = 0; changes.length = 0; render(); return; }
   apply(...SCRIPT[step++]);
 }
 
 document.getElementById("legend").innerHTML = ORDER.map(k => `<span data-state="${k}"><i>${STATES[k].glyph}</i>${STATES[k].label}</span>`).join("")
+  + `<span data-state="false"><i>×</i>FALSE ALARM (history only)</span><span><i style="color:var(--dim)">‖</i>PARKED: known issue, not lit</span>`
   + `<span><i style="color:var(--crit)">◆</i>PEAK: recently cleared, fades over 30m</span>`;
 
 // --- clocks: text every second, buckets every minute, demo every 12s
@@ -672,14 +852,20 @@ function tick() {
   document.getElementById("clock").textContent = new Date(now).toLocaleTimeString([], { hour12: false }) + " · " + new Date(now).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
   document.querySelectorAll("[data-since]").forEach(el => { const t = fmtDur(now - +el.dataset.since); el.textContent = el.closest(".row") ? `for ${t}` : t; });
   document.querySelectorAll("[data-ago]").forEach(el => el.textContent = fmtDur(now - +el.dataset.ago));
-  for (const s of checks) if (s.interval && s.state !== "stale" && now - s.lastSeen > s.interval) s.lastSeen = now;
+  document.querySelectorAll("[data-until]").forEach(el => el.textContent = `${fmtDur(+el.dataset.until - now)} left`);
+  const exp = document.getElementById("allow-exp"); if (exp) { if (now > pairExpires) { newCode(); renderAllow(); } else exp.textContent = mmss(pairExpires - now); }
+  for (const s of checks) {
+    const every = fast(s) ? 5 * MIN : s.interval;
+    if (every && s.state !== "stale" && now - s.lastSeen > every) s.lastSeen = now;
+    if (s.state === "ack" && s.snooze && now >= s.snooze.until) apply(s.id, s.snooze.prior, "Snooze ended and the issue has not cleared", "Mission Control");
+  }
 }
 setInterval(tick, 1000);
 setInterval(render, MIN);
 setInterval(() => { if (demo && !openId) nextEvent(); }, 12000);
 
-try { const v = localStorage.getItem("imc.view"); if (v && v !== "board") view = v; } catch {}
-const hashView = location.hash.slice(1); if (["cards", "list", "board"].includes(hashView)) view = hashView;
+try { const v = localStorage.getItem("imc.view"); if (v === "cards" || v === "list") view = v; } catch {}
+const hashView = location.hash.slice(1); if (["cards", "list", "board", "pair"].includes(hashView)) view = hashView;
 tick(); setView(view);
 })();
 </script>
