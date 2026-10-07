@@ -25,6 +25,24 @@ options:
 `,
 });
 
+export const manual = defineDriver({
+  name: "manual",
+  kind: "push",
+  summary: "No automatic source: state comes only from issues people report. For things nothing else watches.",
+  options: z.object({}),
+  example: `id: office-printers
+name: Office printers
+group: Infrastructure
+icon: { mono: PR, color: "#4a4a5a" }
+sensitivity: viewer
+driver: manual
+platform: true
+components:
+  - { name: 2nd floor MFP }
+  - { name: Reception label printer }
+`,
+});
+
 export const webhook = defineDriver({
   name: "webhook",
   kind: "push",

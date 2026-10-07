@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
 import { tx, type DB } from "../db/index.ts";
 import type { Connector } from "../connectors/schema.ts";
-import { STATE_RANK, worst, type Issue, type IssueState, type Observation, type Parked, type Snooze, type State } from "../model.ts";
+import { STATE_RANK, worst, type Issue, type IssueState, type Observation, type Parked, type Relevance, type Snooze, type State } from "../model.ts";
 import { parseDuration } from "../util/duration.ts";
 
 // Turns observations into incidents and a derived state per check.
@@ -16,6 +16,7 @@ export interface IssueRow {
   opened_at: number; last_seen_at: number; missing_count: number; closed_at: number | null; close_reason: string | null;
   ref?: string | null; detail?: string | null; started_at?: number | null; tracked_by?: string | null; tracked_at?: number | null;
   archived_by?: string | null; archived_at?: number | null;
+  components?: string; manual?: number; ignored?: number;
 }
 export interface StateRow {
   check_id: string; state: State; since: number; summary: string; last_ok_at: number | null; last_error: string | null;
@@ -72,6 +73,84 @@ export class Engine extends EventEmitter {
   openIssues(id: string): IssueRow[] {
     return this.db.prepare("SELECT * FROM issues WHERE check_id = ? AND closed_at IS NULL ORDER BY opened_at").all(id) as unknown as IssueRow[];
   }
+  /** Open issues that count: everything except those on components marked "not used". */
+  activeIssues(id: string): IssueRow[] { return this.openIssues(id).filter(o => !o.ignored); }
+
+  // ---------- platforms: components and relevance ----------
+
+  /** Relevance per component: the connector file's list, overridden by choices made in the UI. */
+  relevanceMap(checkId: string): Map<string, { relevance: Relevance; note?: string; by?: string }> {
+    const m = new Map<string, { relevance: Relevance; note?: string; by?: string }>();
+    for (const c of this.connector(checkId)?.components ?? []) m.set(c.name.toLowerCase(), { relevance: c.relevance, note: c.note });
+    for (const r of this.db.prepare("SELECT component, relevance, note, by FROM component_prefs WHERE check_id = ?").all(checkId) as { component: string; relevance: Relevance; note: string | null; by: string }[]) {
+      m.set(r.component.toLowerCase(), { relevance: r.relevance, note: r.note ?? undefined, by: r.by });
+    }
+    return m;
+  }
+  /** An issue is ignored only when every component it touches is marked "not used". */
+  private isIgnored(checkId: string, components: string[]): boolean {
+    if (!components.length) return false;
+    const m = this.relevanceMap(checkId);
+    return components.every(c => m.get(c.toLowerCase())?.relevance === "ignore");
+  }
+  /** Known components: configured, chosen in the UI, or seen in incidents in the last 90 days. */
+  components(checkId: string): { name: string; relevance: Relevance; note?: string }[] {
+    const names = new Map<string, string>();
+    for (const c of this.connector(checkId)?.components ?? []) names.set(c.name.toLowerCase(), c.name);
+    for (const r of this.db.prepare("SELECT component FROM component_prefs WHERE check_id = ?").all(checkId) as { component: string }[]) if (!names.has(r.component.toLowerCase())) names.set(r.component.toLowerCase(), r.component);
+    const seen = this.db.prepare("SELECT components FROM issues WHERE check_id = ? AND opened_at > ? AND components != '[]'").all(checkId, Date.now() - RETENTION) as { components: string }[];
+    for (const r of seen) for (const n of JSON.parse(r.components) as string[]) if (!names.has(n.toLowerCase())) names.set(n.toLowerCase(), n);
+    const m = this.relevanceMap(checkId);
+    return [...names.values()].map(n => ({ name: n, relevance: m.get(n.toLowerCase())?.relevance ?? "normal", note: m.get(n.toLowerCase())?.note }));
+  }
+  /** "We don't use Teams": future and open issues touching only ignored parts stop counting at once. */
+  setRelevance(checkId: string, component: string, relevance: Relevance, by: string, note?: string, now = Date.now()) {
+    const name = component.trim().slice(0, 80);
+    if (!name) throw new UserError("Name the component");
+    tx(this.db, () => {
+      this.db.prepare(`INSERT INTO component_prefs (check_id, component, relevance, note, by, at) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(check_id, component) DO UPDATE SET relevance = excluded.relevance, note = excluded.note, by = excluded.by, at = excluded.at`)
+        .run(checkId, name, relevance, note ?? null, by, now);
+      for (const o of this.openIssues(checkId)) {
+        if (o.manual) continue;
+        const ign = this.isIgnored(checkId, JSON.parse(o.components ?? "[]")) ? 1 : 0;
+        if (ign === (o.ignored ?? 0)) continue;
+        this.db.prepare("UPDATE issues SET ignored = ? WHERE id = ?").run(ign, o.id);
+        this.update(o.id, now, "action", null, ign ? `Ignored: ${name} is marked not used` : `Counts again: ${name} is in use`, by);
+      }
+      this.event(checkId, this.state(checkId)!.state, relevance === "ignore" ? `${name} marked not used by ${by}${note ? `: ${note}` : ""}` : `${name} marked in use by ${by}`, "Mission Control", now);
+      this.recompute(checkId, now);
+    });
+  }
+
+  /** A person reports what no source shows, e.g. "Sway isn't saving changes" with no Microsoft alert. */
+  reportIssue(checkId: string, input: { state: IssueState; title: string; detail?: string; component?: string; ref?: string }, by: string, now = Date.now()): number {
+    if (!this.connector(checkId)) throw new UserError("No such check");
+    const title = input.title.trim(); if (!title) throw new UserError("Describe the issue in a few words");
+    if (!["crit", "warn", "maint"].includes(input.state)) throw new UserError("State must be Down, Degraded or Maintenance");
+    return tx(this.db, () => {
+      const key = `manual:${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      const open = this.openIssues(checkId);
+      this.upsertIssue(checkId, open, {
+        key, state: input.state, summary: title.slice(0, 200), detail: input.detail?.trim().slice(0, 2000) || undefined,
+        ref: input.ref?.trim().slice(0, 40) || undefined, components: input.component?.trim() ? [input.component.trim().slice(0, 80)] : undefined,
+      }, `Reported by ${by}`, now, true); // people's reports always count, even on a part marked not used
+      const id = open.find(o => o.key === key)!.id;
+      this.recompute(checkId, now);
+      return id;
+    });
+  }
+  /** Closes a reported issue. Source-reported ones close when the source says so (or via Clear / False alarm). */
+  resolveIssue(issueId: number, by: string, note?: string, now = Date.now()) {
+    const i = this.issue(issueId); if (!i) throw new UserError("No such incident");
+    if (!i.manual) throw new UserError("This one comes from the source and closes when the source clears it. Use Clear or False alarm on the check instead.");
+    if (i.closed_at) throw new UserError("Already resolved");
+    tx(this.db, () => {
+      if (note?.trim()) this.update(issueId, now, "note", null, note.trim().slice(0, 4000), by);
+      this.closeIssue(i, "manual", now, `Resolved: ${i.summary}`, `Reported by ${by}`, by);
+      this.recompute(i.check_id, now);
+    });
+  }
 
   // ---------- inputs ----------
 
@@ -90,6 +169,7 @@ export class Engine extends EventEmitter {
       for (const i of live) this.upsertIssue(checkId, open, i, origin, now);
       for (const o of open) {
         if (o.key === SIGNAL_KEY) { this.closeIssue(o, "cleared", now, "Signal restored", origin); continue; }
+        if (o.manual) continue; // people's reports close when people resolve them
         if (live.some(i => i.key === o.key)) continue;
         const missing = o.missing_count + 1;
         if (missing >= c.release) this.closeIssue(o, "cleared", now, `Cleared: ${o.summary}`, origin);
@@ -123,7 +203,7 @@ export class Engine extends EventEmitter {
       const open = this.openIssues(checkId);
       for (const o of open.filter(o => o.key === SIGNAL_KEY)) this.closeIssue(o, "cleared", now, "Signal restored", origin);
       if (input.state === "ok") {
-        for (const o of open) if (o.key !== SIGNAL_KEY && (!input.key || o.key === input.key)) this.closeIssue(o, "cleared", now, input.summary || `Cleared: ${o.summary}`, origin);
+        for (const o of open) if (o.key !== SIGNAL_KEY && !o.manual && (!input.key || o.key === input.key)) this.closeIssue(o, "cleared", now, input.summary || `Cleared: ${o.summary}`, origin);
         this.db.prepare("UPDATE check_state SET summary = ? WHERE check_id = ?").run(input.summary || "Operational", checkId);
       } else {
         this.upsertIssue(checkId, open, { key: input.key || "default", state: input.state, summary: input.summary || "Alert received", url: input.url }, origin, now);
@@ -169,7 +249,7 @@ export class Engine extends EventEmitter {
 
   snooze(checkId: string, minutes: number, by: string, note?: string, now = Date.now()) {
     tx(this.db, () => {
-      const open = this.openIssues(checkId);
+      const open = this.activeIssues(checkId);
       if (!open.length) throw new UserError("Nothing to snooze: this check has no open issues.");
       const rank = STATE_RANK[worst(open.map(o => o.state))];
       const s: Snooze = { by, until: now + Math.min(Math.max(minutes, 1), 24 * 60) * 60e3, note, rank, keys: open.map(o => o.key) };
@@ -205,7 +285,7 @@ export class Engine extends EventEmitter {
   /** Closes everything open as noise, repaints that stretch of history, and ignores those keys until the source drops them. */
   falseAlarm(checkId: string, by: string, now = Date.now()) {
     tx(this.db, () => {
-      const open = this.openIssues(checkId).filter(o => o.key !== SIGNAL_KEY);
+      const open = this.activeIssues(checkId).filter(o => o.key !== SIGNAL_KEY);
       if (!open.length) throw new UserError("Nothing to mark: this check has no open alerts.");
       const from = Math.min(...open.map(o => o.opened_at));
       for (const o of open) this.closeIssue(o, "false_alarm", now, undefined, undefined, by);
@@ -230,7 +310,7 @@ export class Engine extends EventEmitter {
 
   // ---------- internals ----------
 
-  private upsertIssue(checkId: string, open: IssueRow[], i: Issue, origin: string, now: number) {
+  private upsertIssue(checkId: string, open: IssueRow[], i: Issue, origin: string, now: number, manual = false) {
     let cur = open.find(o => o.key === i.key);
     const label = (x: Issue) => (x.ref ? `${x.ref}: ${x.summary}` : x.summary);
     if (!cur && i.key !== SIGNAL_KEY) {
@@ -245,14 +325,17 @@ export class Engine extends EventEmitter {
         this.event(checkId, i.state, `Reopened: ${label(i)}`, origin, now);
       }
     }
+    const comps = i.components ?? [];
+    const ignored = !manual && this.isIgnored(checkId, comps) ? 1 : 0;
     if (!cur) {
-      const r = this.db.prepare(`INSERT INTO issues (check_id, key, state, worst, summary, url, opened_at, last_seen_at, ref, detail, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(checkId, i.key, i.state, i.state, i.summary, i.url ?? null, now, now, i.ref ?? null, i.detail ?? null, i.startedAt && i.startedAt < now ? i.startedAt : null);
+      const r = this.db.prepare(`INSERT INTO issues (check_id, key, state, worst, summary, url, opened_at, last_seen_at, ref, detail, started_at, components, ignored, manual) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(checkId, i.key, i.state, i.state, i.summary, i.url ?? null, now, now, i.ref ?? null, i.detail ?? null, i.startedAt && i.startedAt < now ? i.startedAt : null, JSON.stringify(comps), ignored, manual ? 1 : 0);
       const id = Number(r.lastInsertRowid);
-      open.push({ id, check_id: checkId, key: i.key, state: i.state, worst: i.state, summary: i.summary, url: i.url ?? null, opened_at: now, last_seen_at: now, missing_count: 0, closed_at: null, close_reason: null, ref: i.ref ?? null });
+      open.push({ id, check_id: checkId, key: i.key, state: i.state, worst: i.state, summary: i.summary, url: i.url ?? null, opened_at: now, last_seen_at: now, missing_count: 0, closed_at: null, close_reason: null, ref: i.ref ?? null, components: JSON.stringify(comps), ignored, manual: manual ? 1 : 0 });
       this.update(id, now, "opened", i.state, `${LABEL[i.state]}: ${i.summary}${i.detail ? ` (${i.detail})` : ""}`, origin);
+      if (ignored) this.update(id, now, "action", null, `Ignored: ${comps.join(", ")} ${comps.length > 1 ? "are" : "is"} marked not used`, "Mission Control");
       this.sourceUpdates(id, i, origin);
-      this.event(checkId, i.state, label(i), origin, now);
+      if (!ignored) this.event(checkId, i.state, label(i), origin, now); // ignored issues stay out of the check's log
       return;
     }
     const w = STATE_RANK[i.state] > STATE_RANK[cur.worst] ? i.state : cur.worst;
@@ -261,7 +344,12 @@ export class Engine extends EventEmitter {
     if (cur.state !== i.state) this.update(cur.id, now, "state", i.state, `${LABEL[cur.state]} → ${LABEL[i.state]}`, origin);
     if (cur.summary !== i.summary && !i.updates?.length) this.update(cur.id, now, "source", i.state, i.summary, origin);
     this.sourceUpdates(cur.id, i, origin);
-    if (cur.state !== i.state || cur.summary !== i.summary) this.event(checkId, i.state, label(i), origin, now);
+    if (comps.length && !cur.manual && JSON.stringify(comps) !== cur.components) {
+      this.db.prepare("UPDATE issues SET components = ?, ignored = ? WHERE id = ?").run(JSON.stringify(comps), ignored, cur.id);
+      if (ignored !== (cur.ignored ?? 0)) this.update(cur.id, now, "action", null, ignored ? `Ignored: ${comps.join(", ")} marked not used` : `Counts again: now touches ${comps.join(", ")}`, "Mission Control");
+      Object.assign(cur, { components: JSON.stringify(comps), ignored });
+    }
+    if (!cur.ignored && (cur.state !== i.state || cur.summary !== i.summary)) this.event(checkId, i.state, label(i), origin, now);
     Object.assign(cur, { state: i.state, worst: w, summary: i.summary, missing_count: 0 });
   }
 
@@ -335,7 +423,7 @@ export class Engine extends EventEmitter {
   /** Derives the check's displayed state from open issues, snooze and park; records spans. */
   recompute(checkId: string, now = Date.now(), opts: { falseAlarm?: boolean } = {}) {
     const st = this.state(checkId)!;
-    const open = this.openIssues(checkId);
+    const open = this.activeIssues(checkId);
     const raw = worst(open.map(o => o.state));
     let snooze: Snooze | null = st.snooze ? JSON.parse(st.snooze) : null;
     let parked: Parked | null = st.parked ? JSON.parse(st.parked) : null;

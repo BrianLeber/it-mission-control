@@ -105,7 +105,7 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
     if (c.principal.kind === "anonymous" && !publicBoard()) throw new AccessError("Sign in required", 401);
     const s = c.url.searchParams.get("status");
     return { incidents: listIncidents(engine, c.principal, {
-      status: (["open", "closed", "tracked", "archived", "all"].includes(s ?? "") ? s : "all") as IncidentStatus,
+      status: (["open", "closed", "tracked", "archived", "ignored", "reported", "all"].includes(s ?? "") ? s : "all") as IncidentStatus,
       check: c.url.searchParams.get("check") ?? undefined, q: c.url.searchParams.get("q") ?? undefined,
       limit: Math.min(Number(c.url.searchParams.get("limit")) || 200, 1000),
     }) };
@@ -123,6 +123,21 @@ export function createApp(deps: { db: DB; engine: Engine; runner: Runner; vault:
   }, "view");
   route("POST", "/api/incidents/:id/track", c => { const i = incident(c.principal, c.params.id); engine.trackIssue(i.id, c.body?.on !== false, actor(c.principal)); return { ok: true }; }, "operate");
   route("POST", "/api/incidents/:id/archive", c => { const i = incident(c.principal, c.params.id); engine.archiveIssue(i.id, c.body?.on !== false, actor(c.principal)); return { ok: true }; }, "operate");
+  route("POST", "/api/incidents/:id/resolve", c => { const i = incident(c.principal, c.params.id); engine.resolveIssue(i.id, actor(c.principal), c.body?.note ? String(c.body.note) : undefined); return { ok: true }; }, "operate");
+  // A person's own report: confirmed problems the vendor hasn't posted, or our own systems.
+  route("POST", "/api/checks/:id/report", c => {
+    const conn = visible(c.principal, c.params.id), b = c.body ?? {};
+    const id = engine.reportIssue(conn.id, { state: b.state, title: String(b.title ?? ""), detail: b.detail ? String(b.detail) : undefined, component: b.component ? String(b.component) : undefined, ref: b.ref ? String(b.ref) : undefined }, actor(c.principal));
+    return { id };
+  }, "operate");
+  // Relevance is a standing decision about what we run, so it needs connector rights, not just operate.
+  route("PUT", "/api/checks/:id/components/:name", c => {
+    const conn = visible(c.principal, c.params.id);
+    const rel = c.body?.relevance;
+    if (rel !== "normal" && rel !== "ignore") throw new UserError('relevance must be "normal" or "ignore"');
+    engine.setRelevance(conn.id, c.params.name, rel, actor(c.principal), c.body?.note ? String(c.body.note).slice(0, 200) : undefined);
+    return { ok: true };
+  }, "manage_connectors");
   route("POST", "/api/incidents/:id/notes", c => { const i = incident(c.principal, c.params.id); engine.addNote(i.id, String(c.body?.text ?? ""), actor(c.principal)); return { ok: true }; }, "operate");
 
   // ---------- push sources ----------

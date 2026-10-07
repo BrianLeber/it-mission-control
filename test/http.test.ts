@@ -224,3 +224,15 @@ test("check now re-polls immediately; push-based checks say why they can't", asy
   assert.equal(push.status, 400);
   assert.match(push.data.error, /push-based/);
 });
+
+test("report, resolve and relevance over HTTP, with the right permissions", async () => {
+  const tech = await signIn("tech", "tech-password-123");
+  const r = await call("/api/checks/jamf/report", { method: "POST", cookie: tech, body: { state: "warn", title: "Self Service slow to load", detail: "Confirmed on 3 Macs" } });
+  assert.equal(r.status, 200);
+  const jamf = (await call("/api/checks", { cookie: tech })).data.checks.find((c: any) => c.id === "jamf");
+  assert.equal(jamf.state, "warn");
+  assert.equal((await call(`/api/incidents/${r.data.id}/resolve`, { method: "POST", cookie: tech, body: { note: "Cleared after restart" } })).status, 200);
+  assert.equal((await call("/api/checks/github/components/Actions", { method: "PUT", cookie: tech, body: { relevance: "ignore" } })).status, 403, "technicians can't decide what we use");
+  const admin = await signIn("admin", "admin-password-123");
+  assert.equal((await call("/api/checks/github/components/Actions", { method: "PUT", cookie: admin, body: { relevance: "ignore" } })).status, 200);
+});

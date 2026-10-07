@@ -49,6 +49,7 @@ export function parseStatuspage(s: Summary, o: z.output<typeof Options>): Observ
     if (st === "ignore") continue;
     issues.push({
       key: `inc:${i.id}`, state: st, summary: i.name, url: i.shortlink, startedAt: Date.parse(i.created_at ?? "") || undefined,
+      components: i.components?.length ? i.components.map(c => c.name) : undefined,
       updates: (i.incident_updates ?? []).map(u => ({ t: Date.parse(u.created_at ?? ""), text: `${cap(u.status)}: ${u.body ?? ""}`.trim() }))
         .filter(u => u.t && u.text).sort((a, b) => a.t - b.t),
     });
@@ -58,13 +59,13 @@ export function parseStatuspage(s: Summary, o: z.output<typeof Options>): Observ
       if (!["in_progress", "verifying"].includes(m.status) || !touches(m.components)) continue;
       m.components?.forEach(c => covered.add(c.id));
       const st = map.maintenance ?? "maint";
-      if (st !== "ignore") issues.push({ key: `mnt:${m.id}`, state: st, summary: `Maintenance: ${m.name}`, url: m.shortlink });
+      if (st !== "ignore") issues.push({ key: `mnt:${m.id}`, state: st, summary: `Maintenance: ${m.name}`, url: m.shortlink, components: m.components?.length ? m.components.map(c => c.name) : undefined });
     }
   }
   // Components that are unhappy without a posted incident still count.
   for (const c of s.components ?? []) {
     if (c.group || !COMPONENT[c.status] || covered.has(c.id) || !want(c.name)) continue;
-    issues.push({ key: `cmp:${c.id}`, state: COMPONENT[c.status], summary: `${c.name}: ${PRETTY[c.status]}` });
+    issues.push({ key: `cmp:${c.id}`, state: COMPONENT[c.status], summary: `${c.name}: ${PRETTY[c.status]}`, components: [c.name] });
   }
   return { issues, okSummary: s.status?.description || "All systems operational" };
 }

@@ -5,12 +5,13 @@ import type { Engine, IssueRow } from "./engine.ts";
 // Incident records for people: list, detail, export. Visibility follows the check's
 // sensitivity, so an incident on a hidden check is as absent as the check itself.
 
-export type IncidentStatus = "open" | "closed" | "tracked" | "archived" | "all";
+export type IncidentStatus = "open" | "closed" | "tracked" | "archived" | "ignored" | "reported" | "all";
 
 export interface IncidentView {
   id: number; checkId: string; checkName: string; ref: string | null; title: string; detail: string | null;
   state: string; worst: string; url: string | null; openedAt: number; startedAt: number | null; closedAt: number | null; closeReason: string | null;
   tracked: { by: string; at: number } | null; archived: { by: string; at: number } | null;
+  components: string[]; manual: boolean; ignored: boolean;
 }
 export interface IncidentUpdate { t: number; kind: string; state: string | null; text: string; by: string | null }
 
@@ -21,12 +22,16 @@ const toView = (r: IssueRow, c: Connector): IncidentView => ({
   openedAt: r.opened_at, startedAt: r.started_at ?? null, closedAt: r.closed_at, closeReason: r.close_reason,
   tracked: r.tracked_at ? { by: r.tracked_by!, at: r.tracked_at } : null,
   archived: r.archived_at ? { by: r.archived_by!, at: r.archived_at } : null,
+  components: JSON.parse(r.components ?? "[]"), manual: !!r.manual, ignored: !!r.ignored,
 });
 
 export function listIncidents(engine: Engine, p: Principal, f: { status?: IncidentStatus; check?: string; q?: string; limit?: number } = {}): IncidentView[] {
   const where: string[] = [], args: (string | number)[] = [];
   const status = f.status ?? "all";
-  if (status === "open") where.push("i.closed_at IS NULL");
+  // "Open" means open and counted; ignored ones have their own filter so they don't add noise.
+  if (status === "open") where.push("i.closed_at IS NULL AND i.ignored = 0");
+  if (status === "ignored") where.push("i.ignored = 1");
+  if (status === "reported") where.push("i.manual = 1");
   if (status === "closed") where.push("i.closed_at IS NOT NULL");
   if (status === "tracked") where.push("i.tracked_at IS NOT NULL");
   if (status === "archived") where.push("i.archived_at IS NOT NULL");
@@ -39,7 +44,7 @@ export function listIncidents(engine: Engine, p: Principal, f: { status?: Incide
     const c = JSON.parse(r.def) as Connector;
     if (!canSee(p, c)) continue;
     const v = toView(r, c);
-    if (q && ![v.ref, v.title, v.detail, v.checkName].some(x => x?.toLowerCase().includes(q))) continue;
+    if (q && ![v.ref, v.title, v.detail, v.checkName, ...v.components].some(x => x?.toLowerCase().includes(q))) continue;
     out.push(v);
     if (out.length >= (f.limit ?? 200)) break;
   }
@@ -66,7 +71,9 @@ export function incidentMarkdown(i: IncidentView & { updates: IncidentUpdate[] }
   const lines = [
     `# ${i.ref ? `${i.ref}: ` : ""}${i.title}`,
     "",
-    `- **Service:** ${i.checkName}`,
+    `- **Service:** ${i.checkName}${i.components.length ? ` · ${i.components.join(", ")}` : ""}`,
+    ...(i.manual ? ["- **Source:** reported by our team (no vendor alert)"] : []),
+    ...(i.ignored ? ["- **Relevance:** ignored, the affected part is marked not used"] : []),
     `- **Status:** ${i.closedAt ? STATE_WORD[i.state] : `${STATE_WORD[i.state]} (open)`} · worst: ${STATE_WORD[i.worst]}`,
     ...(i.startedAt ? [`- **Started (per source):** ${iso(i.startedAt)}`] : []),
     `- **Detected:** ${iso(i.openedAt)}`,

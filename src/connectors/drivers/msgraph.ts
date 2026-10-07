@@ -34,7 +34,7 @@ export function parseGraphIssues(list: GraphIssue[], o: z.output<typeof Options>
     else if (o.include_advisories) state = "warn";
     else continue;
     issues.push({
-      key: `issue:${i.id}`, state, summary: i.title, ref: i.id,
+      key: `issue:${i.id}`, state, summary: i.title, ref: i.id, components: i.service ? [i.service] : undefined,
       detail: [i.service, i.impactDescription].filter(Boolean).join(": ") || undefined,
       url: `https://admin.microsoft.com/#/servicehealth/:/alerts/${encodeURIComponent(i.id)}`,
       startedAt: Date.parse(i.startDateTime ?? "") || undefined,

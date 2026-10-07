@@ -32,6 +32,14 @@ export const ConnectorSchema = z.object({
   /** NO SIGNAL after this many intervals without a good reading. */
   grace: z.number().min(1).max(20).default(2),
   options: z.record(z.string(), z.unknown()).default({}),
+  /** A broad service with parts (Microsoft 365, Google Workspace): gets its own page with a card per component. */
+  platform: z.boolean().default(false),
+  /** Known parts and how much we care. Parts seen in incidents but not listed here are added automatically. */
+  components: z.array(z.object({
+    name: z.string().min(1).max(80),
+    relevance: z.enum(["normal", "ignore"]).default("normal"),
+    note: z.string().max(200).optional(),
+  })).default([]),
   notes: z.string().max(2000).optional(),
 });
 

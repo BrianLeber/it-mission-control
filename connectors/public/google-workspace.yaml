@@ -9,3 +9,12 @@ every: 1h
 options:
   url: https://www.google.com/appsstatus/dashboard/incidents.json
   base: https://www.google.com/appsstatus/dashboard/
+platform: true
+components:
+  - { name: Gmail }
+  - { name: Google Drive }
+  - { name: Google Docs }
+  - { name: Google Sheets }
+  - { name: Google Calendar }
+  - { name: Google Meet }
+  - { name: Google Chat }

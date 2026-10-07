@@ -170,6 +170,22 @@ const MIGRATIONS: string[] = [
   CREATE INDEX issue_updates_issue ON issue_updates(issue_id, t);
   CREATE UNIQUE INDEX issue_updates_fp ON issue_updates(issue_id, fp) WHERE fp IS NOT NULL;
   `,
+  `
+  -- Platforms and relevance: which component an issue touches, whether we care, and
+  -- issues people report themselves (no vendor alert).
+  ALTER TABLE issues ADD COLUMN components TEXT NOT NULL DEFAULT '[]';
+  ALTER TABLE issues ADD COLUMN manual INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE issues ADD COLUMN ignored INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE component_prefs (
+    check_id TEXT NOT NULL REFERENCES checks(id) ON DELETE CASCADE,
+    component TEXT NOT NULL COLLATE NOCASE,
+    relevance TEXT NOT NULL,
+    note TEXT,
+    by TEXT,
+    at INTEGER NOT NULL,
+    PRIMARY KEY (check_id, component)
+  );
+  `,
 ];
 
 export function openDb(path: string): DB {

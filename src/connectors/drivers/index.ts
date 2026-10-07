@@ -6,8 +6,8 @@ import rss from "./rss.ts";
 import json from "./json.ts";
 import http from "./http.ts";
 import msgraph from "./msgraph.ts";
-import { heartbeat, webhook } from "./push.ts";
+import { heartbeat, manual, webhook } from "./push.ts";
 
 export const DRIVERS: Record<string, Driver> = Object.fromEntries(
-  [statuspage, slack, google, rss, json, http, msgraph, heartbeat, webhook].map(d => [d.name, d as unknown as Driver]),
+  [statuspage, slack, google, rss, json, http, msgraph, heartbeat, webhook, manual].map(d => [d.name, d as unknown as Driver]),
 );

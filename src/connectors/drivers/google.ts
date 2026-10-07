@@ -35,7 +35,7 @@ export function parseGoogle(list: Incident[], o: z.output<typeof Options>): Obse
     if (st === "ignore") continue;
     const what = i.affected_products?.map(p => p.title).join(", ") || i.service_name || "Google";
     issues.push({
-      key: `inc:${i.id}`, state: st,
+      key: `inc:${i.id}`, state: st, components: i.affected_products?.length ? i.affected_products.map(p => p.title) : i.service_name ? [i.service_name] : undefined,
       summary: `${what}: ${(i.external_desc ?? "Incident").split("\n")[0].trim()}`,
       url: i.uri ? new URL(i.uri, o.base).toString() : o.base,
       startedAt: Date.parse(i.begin ?? "") || undefined,

@@ -22,7 +22,10 @@ export interface CheckView {
   snooze: Pick<Snooze, "by" | "until" | "note"> | null;
   peak: { state: State; at: number; dur: number } | null;
   /** Open incidents, so the card and panel can show references and tracking without another call. */
-  issues: { id: number; ref: string | null; summary: string; state: string; openedAt: number; tracked: boolean }[];
+  issues: { id: number; ref: string | null; summary: string; state: string; openedAt: number; tracked: boolean; components: string[]; manual: boolean; ignored: boolean }[];
+  /** Platforms only: one entry per part, with its own state from the open issues touching it. */
+  platform: boolean;
+  components: { name: string; relevance: string; note?: string; state: string; open: number; summary: string | null }[];
   sensitivity?: string;
 }
 
@@ -67,11 +70,24 @@ export function visibleChecks(engine: Engine, p: Principal, opts: { includeSensi
       parked: parked && { ...parked, untilLabel: parked.until ? new Date(parked.until).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "unparked" },
       snooze: snooze && { by: snooze.by, until: snooze.until, note: snooze.note },
       peak: st.state === "ok" ? peakOf(spans, now) : null,
-      issues: engine.openIssues(c.id).map(i => ({ id: i.id, ref: i.ref ?? null, summary: i.summary, state: i.state, openedAt: i.opened_at, tracked: !!i.tracked_at })),
+      issues: engine.openIssues(c.id).map(i => ({ id: i.id, ref: i.ref ?? null, summary: i.summary, state: i.state, openedAt: i.opened_at, tracked: !!i.tracked_at,
+        components: JSON.parse(i.components ?? "[]"), manual: !!i.manual, ignored: !!i.ignored })),
+      platform: c.platform || c.components.length > 0,
+      components: c.platform || c.components.length ? componentStates(engine, c.id) : [],
       ...(opts.includeSensitivity ? { sensitivity: c.sensitivity } : {}),
     });
   }
   return out;
+}
+
+function componentStates(engine: Engine, checkId: string): CheckView["components"] {
+  const open = engine.openIssues(checkId).filter(i => i.key !== "_signal");
+  const rank: Record<string, number> = { crit: 6, warn: 5, stale: 4, maint: 2 };
+  return engine.components(checkId).map(comp => {
+    const mine = open.filter(i => (JSON.parse(i.components ?? "[]") as string[]).some(n => n.toLowerCase() === comp.name.toLowerCase()));
+    const top = [...mine].sort((a, b) => (rank[b.state] ?? 0) - (rank[a.state] ?? 0))[0];
+    return { ...comp, state: top?.state ?? "ok", open: mine.length, summary: top ? (top.ref ? `${top.ref}: ` : "") + top.summary : null };
+  }).sort((a, b) => (rank[b.state] ?? 0) - (rank[a.state] ?? 0) || (a.relevance === "ignore" ? 1 : 0) - (b.relevance === "ignore" ? 1 : 0) || a.name.localeCompare(b.name));
 }
 
 /** The worst state in the run of spans that ended most recently, if it ended within the hold. */

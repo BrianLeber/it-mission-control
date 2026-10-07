@@ -26,7 +26,12 @@ export interface Issue {
   detail?: string;
   /** The vendor's posted updates, oldest first. Recorded once each on the incident timeline. */
   updates?: { t: number; text: string }[];
+  /** Which parts of a platform it touches, e.g. ["SharePoint Online"]. Drives relevance and platform pages. */
+  components?: string[];
 }
+
+/** normal: counts. ignore: "not used by us", recorded for the record but never lights anything. */
+export type Relevance = "normal" | "ignore";
 
 /** What a driver returns from one poll (or what a push source sends). */
 export interface Observation {

@@ -12,7 +12,7 @@ const Options = z.object({
 interface Current {
   status?: string;
   active_incidents?: { id: number | string; title: string; type?: string; status?: string; url?: string; date_created?: string;
-    notes?: { date_created?: string; body?: string }[] }[];
+    notes?: { date_created?: string; body?: string }[]; services?: string[] }[];
 }
 const TYPES: Record<string, IssueState | "ignore"> = { outage: "crit", incident: "warn", notice: "warn", maintenance: "maint" };
 
@@ -24,7 +24,7 @@ export function parseSlack(c: Current, o: z.output<typeof Options>): Observation
     const st = map[i.type ?? "incident"] ?? "warn";
     if (st === "ignore") continue;
     issues.push({
-      key: `inc:${i.id}`, state: st, summary: i.title, url: i.url, startedAt: Date.parse(i.date_created ?? "") || undefined,
+      key: `inc:${i.id}`, state: st, summary: i.title, url: i.url, components: i.services?.length ? i.services : undefined, startedAt: Date.parse(i.date_created ?? "") || undefined,
       updates: (i.notes ?? []).map(n => ({ t: Date.parse(n.date_created ?? ""), text: (n.body ?? "").trim() })).filter(u => u.t && u.text).sort((a, b) => a.t - b.t),
     });
   }

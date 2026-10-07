@@ -14,5 +14,17 @@ options:
   tenant_id: ${secret:m365_tenant_id}
   client_id: ${secret:m365_client_id}
   client_secret: ${secret:m365_client_secret}
-  # services: ["Exchange Online", "Microsoft Teams", "SharePoint Online"]
   include_advisories: false
+# A platform gets its own page with a card per service. Names match Microsoft's service
+# names; services that show up in incidents are added automatically.
+platform: true
+components:
+  - { name: Exchange Online }
+  - { name: SharePoint Online }
+  - { name: OneDrive for Business }
+  - { name: Microsoft 365 apps }
+  - { name: Sway }
+  - { name: Microsoft Forms }
+  - { name: Planner }
+  # Not used here: Teams incidents are still recorded, but never light the board.
+  - { name: Microsoft Teams, relevance: ignore, note: "We don't use Teams" }
