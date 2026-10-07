@@ -1,0 +1,18 @@
+# Microsoft 365 service health for YOUR tenant (Microsoft publishes no keyless public feed).
+# 1. Entra ID → App registrations → New. Add the Microsoft Graph application permission
+#    ServiceHealth.Read.All and grant admin consent. Create a client secret.
+# 2. Mission Control → Settings → Credentials: m365_tenant_id, m365_client_id, m365_client_secret.
+id: m365
+name: Microsoft 365
+group: Public SaaS
+icon: { mono: "365", color: "#c43e1c" }
+link: https://admin.microsoft.com/#/servicehealth
+sensitivity: viewer
+driver: ms-graph-service-health
+every: 1h
+options:
+  tenant_id: ${secret:m365_tenant_id}
+  client_id: ${secret:m365_client_id}
+  client_secret: ${secret:m365_client_secret}
+  # services: ["Exchange Online", "Microsoft Teams", "SharePoint Online"]
+  include_advisories: false

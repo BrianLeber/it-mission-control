@@ -1,0 +1,10 @@
+id: confluence
+name: Atlassian · Confluence
+group: Public SaaS
+icon: { mono: "Cf", color: "#1868db" }
+link: https://confluence.status.atlassian.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://confluence.status.atlassian.com/api/v2/summary.json

@@ -1,0 +1,8 @@
+id: slack
+name: Slack
+group: Public SaaS
+icon: { mono: Sl, color: "#611f69" }
+link: https://slack-status.com/
+sensitivity: public
+driver: slack-status
+every: 1h

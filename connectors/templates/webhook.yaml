@@ -1,0 +1,9 @@
+# Anything that can POST JSON (NinjaOne, UniFi, scripts, Zapier). Get the URL and bearer
+# token from the connector's panel. Body: {"key":"disk-d","state":"warn","summary":"Disk D: 92%"}
+# state is ok | warn | crit | maint | stale; "ok" with a key clears that key, without one clears all.
+id: fs01
+name: FS01
+group: Infrastructure
+icon: { mono: FS, color: "#00597a" }
+sensitivity: viewer
+driver: webhook

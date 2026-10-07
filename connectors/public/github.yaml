@@ -1,0 +1,10 @@
+id: github
+name: GitHub
+group: Public SaaS
+icon: { mono: "GH", color: "#24292f" }
+link: https://www.githubstatus.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://www.githubstatus.com/api/v2/summary.json

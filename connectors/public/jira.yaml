@@ -1,0 +1,10 @@
+id: jira
+name: Atlassian · Jira
+group: Public SaaS
+icon: { mono: "Ji", color: "#0052cc" }
+link: https://jira-software.status.atlassian.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://jira-software.status.atlassian.com/api/v2/summary.json

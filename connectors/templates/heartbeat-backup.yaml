@@ -1,0 +1,14 @@
+# A job pings Mission Control when it runs. Get the ping URL from the connector's panel
+# (admins only), then add it to the end of your script:
+#   curl -fsS -m 10 -X POST "<ping url>"            on success
+#   curl -fsS -m 10 -X POST "<ping url>/fail"       on failure
+id: nightly-backup
+name: Nightly backup
+group: Infrastructure
+icon: { mono: BK, color: "#00865f" }
+sensitivity: viewer
+driver: heartbeat
+every: 24h
+grace: 1.25
+options:
+  down_after: 36h

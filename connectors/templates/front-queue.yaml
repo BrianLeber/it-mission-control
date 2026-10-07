@@ -1,0 +1,16 @@
+# Front queue snapshot. Create an API token in Front (Settings → Developers → API tokens)
+# and store it as front_api_token. Replace inb_XXXX with your inbox ID.
+id: front-it-queue
+name: Front · IT queue
+group: Our platforms
+icon: { mono: F, color: "#a23ce0" }
+link: https://app.frontapp.com/
+sensitivity: viewer
+driver: json
+every: 1h
+options:
+  url: https://api2.frontapp.com/conversations/search/is%3Aopen%20inbox%3Ainb_XXXX
+  headers: { Authorization: "Bearer ${secret:front_api_token}" }
+  rules:
+    - { path: _total, op: ">", value: 25, state: warn, summary: "{{_total}} open conversations (limit 25)" }
+  ok_summary: "{{$._total}} open conversations"

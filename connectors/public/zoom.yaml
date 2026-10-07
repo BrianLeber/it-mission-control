@@ -1,0 +1,10 @@
+id: zoom
+name: Zoom
+group: Public SaaS
+icon: { mono: "Zm", color: "#0b5cff" }
+link: https://status.zoom.us/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://status.zoom.us/api/v2/summary.json

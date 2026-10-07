@@ -1,0 +1,10 @@
+id: cloudflare
+name: Cloudflare
+group: Public SaaS
+icon: { mono: "CF", color: "#c35a00" }
+link: https://www.cloudflarestatus.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://www.cloudflarestatus.com/api/v2/summary.json

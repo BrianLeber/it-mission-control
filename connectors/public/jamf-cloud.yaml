@@ -1,0 +1,10 @@
+id: jamf-cloud
+name: Jamf Cloud
+group: Public SaaS
+icon: { mono: "J", color: "#3f4a59" }
+link: https://status.jamf.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://status.jamf.com/api/v2/summary.json

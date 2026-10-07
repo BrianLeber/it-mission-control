@@ -1,0 +1,11 @@
+# A check only the Finance group may know exists. Keep files like this OUT of the public repo:
+# add them through the UI or a private config folder (IMC_CONNECTORS) instead.
+id: payroll-gateway
+name: Payroll gateway
+group: Finance
+sensitivity: secret
+groups: [finance]
+driver: http
+every: 15m
+options:
+  url: https://payroll-gw.internal.example/health

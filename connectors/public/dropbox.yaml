@@ -1,0 +1,10 @@
+id: dropbox
+name: Dropbox
+group: Public SaaS
+icon: { mono: "Db", color: "#0061fe" }
+link: https://status.dropbox.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://status.dropbox.com/api/v2/summary.json

@@ -1,0 +1,11 @@
+id: google-workspace
+name: Google Workspace
+group: Public SaaS
+icon: { mono: G, color: "#1a73e8" }
+link: https://www.google.com/appsstatus/dashboard/
+sensitivity: public
+driver: google-incidents
+every: 1h
+options:
+  url: https://www.google.com/appsstatus/dashboard/incidents.json
+  base: https://www.google.com/appsstatus/dashboard/

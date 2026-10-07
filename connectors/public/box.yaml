@@ -1,0 +1,10 @@
+id: box
+name: Box
+group: Public SaaS
+icon: { mono: "Bx", color: "#0061d5" }
+link: https://status.box.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://status.box.com/api/v2/summary.json

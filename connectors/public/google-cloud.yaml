@@ -1,0 +1,11 @@
+id: google-cloud
+name: Google Cloud
+group: Public SaaS
+icon: { mono: GC, color: "#1967d2" }
+link: https://status.cloud.google.com/
+sensitivity: public
+driver: google-incidents
+every: 1h
+options:
+  url: https://status.cloud.google.com/incidents.json
+  base: https://status.cloud.google.com/

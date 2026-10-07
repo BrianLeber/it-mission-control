@@ -1,0 +1,11 @@
+id: aws
+name: AWS
+group: Public SaaS
+icon: { mono: AWS, color: "#232f3e" }
+link: https://health.aws.amazon.com/health/status
+sensitivity: public
+driver: rss
+every: 1h
+options:
+  url: https://status.aws.amazon.com/rss/all.rss
+  window: 12h

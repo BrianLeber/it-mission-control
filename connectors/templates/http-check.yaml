@@ -1,0 +1,14 @@
+# Reachability for an internal server or web app. The monitor must be able to reach it.
+id: intranet
+name: Intranet
+group: Infrastructure
+icon: { mono: IN, color: "#3b5b4a" }
+link: https://intranet.example.local/
+sensitivity: viewer
+driver: http
+every: 5m
+fast_every: 1m
+options:
+  url: https://intranet.example.local/health
+  contains: OK
+  slow_ms: 2000

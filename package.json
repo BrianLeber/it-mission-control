@@ -1,0 +1,26 @@
+{
+  "name": "it-mission-control",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Quick-look IT status board: live connectors, incident engine, access control and an MCP endpoint for authoring connectors.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/main.ts",
+    "cli": "node --disable-warning=ExperimentalWarning src/cli.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "validate": "node --disable-warning=ExperimentalWarning src/cli.ts validate"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}

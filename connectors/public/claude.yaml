@@ -1,0 +1,10 @@
+id: claude
+name: Claude
+group: Public SaaS
+icon: { mono: "Cl", color: "#b4542f" }
+link: https://status.claude.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://status.claude.com/api/v2/summary.json

@@ -1,0 +1,14 @@
+# Jamf Pro's unauthenticated health check: returns [] when healthy, a list of problems otherwise.
+id: jamf-pro
+name: Jamf Pro
+group: Our platforms
+icon: { mono: J, color: "#3f4a59" }
+link: https://YOUR-INSTANCE.jamfcloud.com/
+sensitivity: viewer
+driver: json
+every: 15m
+options:
+  url: https://YOUR-INSTANCE.jamfcloud.com/healthCheck.html
+  rules:
+    - { path: "$.length", op: ">", value: 0, state: crit, summary: "Health check reports {{$.length}} problem(s): {{$[0].healthCode}}" }
+  ok_summary: Health check OK

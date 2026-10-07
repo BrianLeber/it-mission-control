@@ -1,0 +1,10 @@
+id: twilio
+name: Twilio
+group: Public SaaS
+icon: { mono: "Tw", color: "#c4122f" }
+link: https://status.twilio.com/
+sensitivity: public
+driver: statuspage
+every: 1h
+options:
+  url: https://status.twilio.com/api/v2/summary.json
